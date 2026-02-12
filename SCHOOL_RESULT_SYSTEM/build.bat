@@ -1,0 +1,1 @@
+E:\SYTEM\.venv\Scripts\pyinstaller.exe --onefile --windowed --name ResultSystem ResultSystem.py
