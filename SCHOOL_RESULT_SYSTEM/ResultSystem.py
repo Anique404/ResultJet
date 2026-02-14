@@ -1,5 +1,5 @@
 """
-ISLAMIA MODEL SCHOOL - RESULT CARD GENERATION SYSTEM v2.0
+The Blessing School - RESULT CARD GENERATION SYSTEM v2.0
 =========================================================
 Desktop Application for generating PDF result cards from Excel files.
 Supports KG and classes 1st to 10th.
@@ -32,7 +32,7 @@ import webbrowser
 # ============================================================================
 
 PASS_THRESHOLD = 33  # Minimum percentage required to pass a subject
-SCHOOL_NAME = "ISLAMIA MODEL SCHOOL"
+SCHOOL_NAME = "The Blessing School"
 SCHOOL_CITY = "Karachi, Pakistan"
 
 CLASSES = ["KG", "1st", "2nd", "3rd", "4th", "5th", "6th", "7th", "8th", "9th", "10th"]
@@ -461,9 +461,6 @@ def process_class_to_pdf(class_name: str, class_data_dir: str, output_dir: str,
         try:
             # Filter by roll number if specified
             if single_roll_no and int(student_row['RollNo']) != single_roll_no:
-                # update progress even when skipping to keep UI responsive
-                if progress_callback:
-                    progress_callback(idx + 1, len(students))
                 continue
             
             # Calculate result
@@ -477,7 +474,6 @@ def process_class_to_pdf(class_name: str, class_data_dir: str, output_dir: str,
                 total_generated += 1
             else:
                 total_failed += 1
-                error_messages.append(f"Failed to generate PDF for RollNo {student_result.get('roll_no', 'N/A')}")
             
             # Update progress
             if progress_callback:
@@ -485,15 +481,6 @@ def process_class_to_pdf(class_name: str, class_data_dir: str, output_dir: str,
                 
         except Exception as e:
             total_failed += 1
-            # Record error message for diagnostics
-            try:
-                roll = student_row.get('RollNo', 'N/A')
-            except Exception:
-                roll = 'N/A'
-            error_messages.append(f"Error processing row {idx+1}, RollNo {roll}: {e}")
-            # still update progress so UI doesn't hang
-            if progress_callback:
-                progress_callback(idx + 1, len(students))
     
     return total_generated, total_failed, error_messages
 
@@ -505,7 +492,7 @@ def process_class_to_pdf(class_name: str, class_data_dir: str, output_dir: str,
 class ResultSystemGUI:
     def __init__(self, root):
         self.root = root
-        self.root.title("School Result System - ISLAMIA MODEL SCHOOL")
+        self.root.title("School Result System - The Blessing School")
         self.root.geometry("800x700")
         
         self.base_dir = os.path.dirname(os.path.abspath(__file__))
@@ -527,7 +514,7 @@ class ResultSystemGUI:
         title_frame = ttk.Frame(self.root)
         title_frame.pack(fill="x", padx=10, pady=10)
         
-        title = ttk.Label(title_frame, text="🏫 ISLAMIA MODEL SCHOOL - RESULT CARD GENERATOR v2.0", 
+        title = ttk.Label(title_frame, text="🏫 The Blessing School - RESULT CARD GENERATOR v2.0", 
                          font=("Arial", 12, "bold"))
         title.pack()
         
