@@ -21,7 +21,7 @@ from reportlab.lib.pagesizes import A4
 from reportlab.lib import colors
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import inch
-from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, PageBreak
+from reportlab.platypus import Image, SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, PageBreak
 from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
 import math
 import subprocess
@@ -35,10 +35,15 @@ PASS_THRESHOLD = 33  # Minimum percentage required to pass a subject
 SCHOOL_NAME = "The Blessing School"
 SCHOOL_CITY = "Karachi, Pakistan"
 
-CLASSES = ["KG", "1st", "2nd", "3rd", "4th", "5th", "6th", "7th", "8th", "9th", "10th"]
-
+CLASSES = [
+    "Playgroup (RED)", "Playgroup (BLUE)",
+    "KG-1 (RED)", "KG-1 (BLUE)",
+    "KG-2 (RED)", "KG-2 (BLUE)",
+    "ONE", "TWO", "THREE", "FOUR", "FIVE",
+    "SIXTH", "SEVEN", "EIGHT", "NINE", "TEN"
+]
 # ============================================================================
-# CORE FUNCTIONS - SUBJECT & PERCENTAGE CALCULATION
+# CORE FUNCTIONS - SUBJECT & PERCENTAGE CALCULATIONF
 # ============================================================================
 
 def detect_subjects_and_max_marks(df: pd.DataFrame) -> List[Tuple[str, str, Optional[str]]]:
@@ -56,7 +61,7 @@ def detect_subjects_and_max_marks(df: pd.DataFrame) -> List[Tuple[str, str, Opti
     Returns:
         List of tuples: [(subject_name, marks_column, max_marks_column), ...]
     """
-    fixed_columns = set(['RollNo', 'StudentName', 'FatherName'])
+    fixed_columns = set(['RollNo', 'StudentName'])
     
     max_mark_columns = {}
     marks_columns = set()
@@ -160,7 +165,6 @@ def calculate_student_result(student_row: pd.Series, subjects: List[Tuple[str, s
     result = {
         'roll_no': int(_get('RollNo')),
         'name': _get('StudentName'),
-        'father_name': _get('FatherName'),
         'subjects': [],
         'total_obtained': 0,
         'total_max': 0,
@@ -251,6 +255,22 @@ def generate_result_card_pdf(student_result: Dict, class_name: str, output_path:
         
         elements = []
         
+        # ============= LOGO ADD KARO YAHAN =============
+        # Logo ka path
+        logo_path = os.path.join(os.path.dirname(__file__), "logo.png")
+        
+        # Check if logo exists
+        if os.path.exists(logo_path):
+            # Logo ko center mein rakhna
+            logo = Image(logo_path, width=1.2*inch, height=1.2*inch)  # Size adjust kar sakta hai
+            logo.hAlign = 'CENTER'  # Center alignment
+            elements.append(logo)
+            elements.append(Spacer(1, 0.1*inch))  # Logo ke neeche thoda space
+        else:
+            # Agar logo na mile to koi baat nahi, continue
+            pass
+        # ================================================
+        
         # Header
         header_style = ParagraphStyle(
             'CustomHeader',
@@ -281,7 +301,7 @@ def generate_result_card_pdf(student_result: Dict, class_name: str, output_path:
         details_data = [
             ['ROLL NO:', str(student_result['roll_no'])],
             ['STUDENT NAME:', student_result['name']],
-            ['FATHER NAME:', student_result['father_name']],
+            # ['FATHER NAME:', student_result['father_name']],
             ['CLASS:', f"{class_name} {chr(65)}"],
         ]
         
@@ -412,7 +432,7 @@ def load_excel_file(file_path: str) -> Optional[Tuple[pd.DataFrame, List[Tuple[s
         df = pd.read_excel(file_path)
         
         # Validate required columns
-        required_cols = ['RollNo', 'StudentName', 'FatherName']
+        required_cols = ['RollNo', 'StudentName']
         for col in required_cols:
             if col not in df.columns:
                 return None
