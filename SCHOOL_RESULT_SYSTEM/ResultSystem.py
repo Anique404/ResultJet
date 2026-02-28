@@ -237,11 +237,11 @@ def create_result_card(student_result: Dict, class_name: str) -> Table:
     logo_path = os.path.join(os.path.dirname(__file__), "logo.png")
     
     if os.path.exists(logo_path):
-        # Logo center mein lagao
-        logo = Image(logo_path, width=1.5*inch, height=1.5*inch)
+        # Logo chhota karo (pehle 1.5 tha, ab 1.0 karo)
+        logo = Image(logo_path, width=1.0*inch, height=1.0*inch)
         
         # Logo ko center karne ka simple tareeka
-        logo_table = Table([[logo]], colWidths=[8.2*inch])
+        logo_table = Table([[logo]], colWidths=[7.2*inch])
         logo_table.setStyle(TableStyle([
             ('ALIGN', (0, 0), (0, 0), 'CENTER'),
         ]))
@@ -258,42 +258,44 @@ def create_result_card(student_result: Dict, class_name: str) -> Table:
         )
         card_elements.append(Paragraph(SCHOOL_NAME, school_style))
     
-    
-    # ===== TITLE =====
+    # ===== TITLE - SPACE KAM KARO =====
     title_style = ParagraphStyle(
         'Title',
         fontSize=12,
         fontName='Helvetica-Bold',
         textColor=SECONDARY_COLOR,
         alignment=TA_CENTER,
-        spaceAfter=8
+        spaceAfter=4  # Pehle 8 tha, ab 4 karo
     )
     card_elements.append(Paragraph("ANNUAL EXAMINATION RESULT CARD", title_style))
     
-    # ===== STUDENT INFO =====
+    # ===== STUDENT INFO - SPACE KAM KARO =====
     info_style = ParagraphStyle(
         'Info',
         fontSize=10,
         fontName='Helvetica',
         alignment=TA_CENTER,
-        spaceAfter=8,
-        leading=14
+        spaceAfter=2,  # Pehle 8 tha, ab 2 karo
+        leading=12  # Pehle 14 tha, ab 12 karo
     )
     
-    info_text = f"<b>Roll No:</b> {student_result['roll_no']} | <b>Class:</b> {class_name} "
+    info_text = f"<b>Roll No:</b> {student_result['roll_no']} | <b>Class:</b> {class_name}"
     card_elements.append(Paragraph(info_text, info_style))
+    
     name_style = ParagraphStyle(
-    'Name',
-    fontSize=11,
-    fontName='Helvetica-Bold',
-    alignment=TA_CENTER,
-    spaceAfter=8,
-    textColor=PRIMARY_COLOR
-)
+        'Name',
+        fontSize=11,
+        fontName='Helvetica-Bold',
+        alignment=TA_CENTER,
+        spaceAfter=4,  # Pehle 8 tha, ab 4 karo
+        textColor=PRIMARY_COLOR
+    )
     name_text = f"<b>Name: {student_result['name']}</b>"
     card_elements.append(Paragraph(name_text, name_style))
     
-    # ===== SUBJECTS TABLE - CENTERED WITH MORE WIDTH =====
+    card_elements.append(Spacer(1, 0.1*inch))
+    
+    # ===== SUBJECTS TABLE - WIDTH SAME RAKHO =====
     subject_data = [['Subject', 'Marks', 'Max', 'Percentage', 'Grade', 'Status']]
     
     for sub in student_result['subjects']:
@@ -306,21 +308,20 @@ def create_result_card(student_result: Dict, class_name: str) -> Table:
             sub['status']
         ])
     
-    # Width badha di - har column ko zyada width di
     subject_table = Table(subject_data, colWidths=[1.5*inch, 1.0*inch, 1.0*inch, 1.0*inch, 1.0*inch, 1.5*inch])
     
     subject_table.setStyle(TableStyle([
-        ('FONT', (0, 0), (-1, 0), 'Helvetica-Bold', 10),        # Header font bada
-        ('FONT', (0, 1), (-1, -1), 'Helvetica', 9),             # Data font bada
-        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),                  # Sab center
-        ('BACKGROUND', (0, 0), (-1, 0), PRIMARY_COLOR),         # Header background
-        ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),           # Header text white
-        ('GRID', (0, 0), (-1, -1), 1, colors.HexColor('#cccccc')),  # Grid lines thicker
+        ('FONT', (0, 0), (-1, 0), 'Helvetica-Bold', 9),  # Header font chhota (10 se 9)
+        ('FONT', (0, 1), (-1, -1), 'Helvetica', 8),  # Data font chhota (9 se 8)
+        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+        ('BACKGROUND', (0, 0), (-1, 0), PRIMARY_COLOR),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+        ('GRID', (0, 0), (-1, -1), 1, colors.HexColor('#cccccc')),
         ('ROWBACKGROUNDS', (0, 1), (-1, -2), [colors.white, LIGHT_BG]),
-        ('TOPPADDING', (0, 0), (-1, -1), 8),                     # Padding bada
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 8),                  # Padding bada
-        ('LEFTPADDING', (0, 0), (-1, -1), 6),                    # Left padding
-        ('RIGHTPADDING', (0, 0), (-1, -1), 6),                   # Right padding
+        ('TOPPADDING', (0, 0), (-1, -1), 4),  # Padding kam (8 se 4)
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 4),  # Padding kam (8 se 4)
+        ('LEFTPADDING', (0, 0), (-1, -1), 4),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 4),
     ]))
     
     # Color coding for status
@@ -330,26 +331,22 @@ def create_result_card(student_result: Dict, class_name: str) -> Table:
         else:
             subject_table.setStyle(TableStyle([('TEXTCOLOR', (5, i), (5, i), DANGER_COLOR)]))
     
-    # Table ko center karo
     subject_table.hAlign = 'CENTER'
-    
-    # Add to card
     card_elements.append(subject_table)
+    card_elements.append(Spacer(1, 0.1*inch))
+
     
     # ===== TOTAL, PERCENTAGE, GRADE =====
     summary_style = ParagraphStyle(
         'Summary',
-        fontSize=12,
+        fontSize=10,  # Pehle 12 tha, ab 10 karo
         fontName='Helvetica-Bold',
         alignment=TA_CENTER,
-        spaceAfter=8
+        spaceAfter=4  # Pehle 8 tha, ab 4 karo
     )
     
     summary_text = f"<b>Total: {student_result['total_obtained']:.0f}/{student_result['total_max']:.0f} | Percentage: {student_result['overall_percentage']:.1f}% | Grade: {student_result['overall_grade']}</b>"
     card_elements.append(Paragraph(summary_text, summary_style))
-    
-    # ===== LINE SEPARATOR =====
-   
     
     # ===== POSITION (LEFT) AND RESULT (RIGHT) IN SAME LINE =====
     pr_data = []
@@ -359,7 +356,7 @@ def create_result_card(student_result: Dict, class_name: str) -> Table:
     position_text = f"<b>POSITION: {student_result['position_str']}</b>"
     position_para = Paragraph(position_text, ParagraphStyle(
         'Position',
-        fontSize=10,
+        fontSize=9,  # Pehle 10 tha, ab 9 karo
         fontName='Helvetica-Bold',
         textColor=position_color,
         alignment=TA_LEFT
@@ -370,7 +367,7 @@ def create_result_card(student_result: Dict, class_name: str) -> Table:
     result_text = f"<b>RESULT: {student_result['overall_status']}</b>"
     result_para = Paragraph(result_text, ParagraphStyle(
         'Result',
-        fontSize=10,
+        fontSize=9,  # Pehle 10 tha, ab 9 karo
         fontName='Helvetica-Bold',
         textColor=result_color,
         alignment=TA_RIGHT
@@ -392,23 +389,22 @@ def create_result_card(student_result: Dict, class_name: str) -> Table:
     # ===== FOOTER with Principal Signature =====
     footer_style = ParagraphStyle(
         'Footer',
-        fontSize=10,
+        fontSize=9,  # Pehle 10 tha, ab 9 karo
         fontName='Helvetica',
         alignment=TA_RIGHT,
         textColor=colors.grey
     )
-    card_elements.append(Paragraph("Principal Signature : ---------------------------------- ", footer_style))
-    
+    card_elements.append(Paragraph("Principal Signature: ____________________", footer_style))
     
     # ===== WRAP EVERYTHING IN A BORDER =====
     card_table = Table([[e] for e in card_elements])
     card_table.setStyle(TableStyle([
         ('BOX', (0, 0), (-1, -1), 1, PRIMARY_COLOR),
         ('BACKGROUND', (0, 0), (-1, -1), colors.white),
-        ('TOPPADDING', (0, 0), (-1, -1), 12),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 10),
-        ('LEFTPADDING', (0, 0), (-1, -1), 12),
-        ('RIGHTPADDING', (0, 0), (-1, -1), 12),
+        ('TOPPADDING', (0, 0), (-1, -1), 6),  # Padding kam (12 se 6)
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 4),  # Padding kam (10 se 4)
+        ('LEFTPADDING', (0, 0), (-1, -1), 8),  # Padding kam (12 se 8)
+        ('RIGHTPADDING', (0, 0), (-1, -1), 8),  # Padding kam (12 se 8)
     ]))
     
     card_table.hAlign = 'CENTER'
@@ -417,30 +413,37 @@ def create_result_card(student_result: Dict, class_name: str) -> Table:
 
 def generate_result_pdf(students_results: List[Dict], class_name: str, output_path: str) -> bool:
     """
-    Generate PDF with 2 cards per page (A4 Portrait)
+    Generate PDF with 2 cards per page (A4 Portrait) - Properly spaced
     """
     try:
         doc = SimpleDocTemplate(output_path, 
                                pagesize=A4,
                                rightMargin=0.4*inch, 
                                leftMargin=0.4*inch,
-                               topMargin=0.4*inch, 
-                               bottomMargin=0.4*inch)
+                               topMargin=0.3*inch, 
+                               bottomMargin=0.3*inch)
         
         elements = []
         
+        # Calculate height for each card to fit 2 per page
+        page_height = A4[1]  # 841.89 points
+        available_height = page_height - 0.6*inch  # Remove margins
+        card_height = available_height / 2  # Divide by 2 for 2 cards
+        
         for i in range(0, len(students_results), 2):
-            # Card 1
+            # Card 1 - Top half
             card1 = create_result_card(students_results[i], class_name)
             elements.append(card1)
-            elements.append(Spacer(1, 0.2*inch))
             
-            # Card 2 (if exists)
+            # Add flexible space to push cards to proper positions
+            elements.append(Spacer(1, 0.3*inch))
+            
+            # Card 2 - Bottom half (if exists)
             if i + 1 < len(students_results):
                 card2 = create_result_card(students_results[i+1], class_name)
                 elements.append(card2)
             
-            # Page break if more students left
+            # Page break after every 2 cards
             if i + 2 < len(students_results):
                 elements.append(PageBreak())
         
