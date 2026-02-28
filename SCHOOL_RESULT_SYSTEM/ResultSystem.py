@@ -1,37 +1,31 @@
 """
-The Blessing School - RESULT CARD GENERATION SYSTEM v2.0
+The Blessing School - RESULT CARD GENERATION SYSTEM v3.0
 =========================================================
-Desktop Application for generating PDF result cards from Excel files.
-Supports KG and classes 1st to 10th.
-
+Premium Version with Position Ranking & Validation
 Author: School Administration System
-Date: 2026
 """
 
 import sys
 import os
 import pandas as pd
 from datetime import datetime
-from pathlib import Path
 import threading
 from typing import List, Dict, Tuple, Optional
 import tkinter as tk
-from tkinter import ttk, messagebox, filedialog
-from reportlab.lib.pagesizes import A4, landscape
+from tkinter import ttk, messagebox
+from reportlab.lib.pagesizes import A4
 from reportlab.lib import colors
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import inch
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, PageBreak, Image
 from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
-import math
 import subprocess
-import webbrowser
 
 # ============================================================================
 # CONFIGURATION
 # ============================================================================
 
-PASS_THRESHOLD = 33  # Minimum percentage required to pass a subject
+PASS_THRESHOLD = 33
 SCHOOL_NAME = "The Blessing School"
 SCHOOL_CITY = "Karachi, Pakistan"
 
@@ -43,77 +37,49 @@ CLASSES = [
     "SIXTH", "SEVEN", "EIGHT", "NINE", "TEN"
 ]
 
+# School colors
+PRIMARY_COLOR = colors.HexColor('#1a3b5d')  # Navy Blue
+SECONDARY_COLOR = colors.HexColor('#c49a1c')  # Gold
+LIGHT_BG = colors.HexColor('#f8f9fa')
+SUCCESS_COLOR = colors.HexColor('#28a745')
+DANGER_COLOR = colors.HexColor('#dc3545')
+
 # ============================================================================
-# CORE FUNCTIONS - SUBJECT & PERCENTAGE CALCULATION
+# CORE FUNCTIONS
 # ============================================================================
 
 def detect_subjects_and_max_marks(df: pd.DataFrame) -> List[Tuple[str, str, Optional[str]]]:
-    """
-    CRITICAL FUNCTION: Detects subjects and their max marks from Excel columns.
-    
-    Rules:
-    - Columns ending with '_Max' are MAX MARKS columns
-    - Subject name = column_name.replace('_Max', '')
-    - If no _Max column found for a subject → DEFAULT MAX = 100
-    
-    Args:
-        df: DataFrame from Excel file
-        
-    Returns:
-        List of tuples: [(subject_name, marks_column, max_marks_column), ...]
-    """
+    """Detects subjects and their max marks from Excel columns."""
     fixed_columns = set(['RollNo', 'StudentName'])
     
-    max_mark_columns = {}
-    marks_columns = set()
-    
-    # Find all _Max columns
-    for col in df.columns:
-        if col.endswith('_Max'):
-            subject = col.replace('_Max', '')
-            max_mark_columns[subject] = col
-        elif col not in fixed_columns:
-            marks_columns.add(col)
-    
-    # Build subjects list
     subjects = []
     for col in df.columns:
-        if col in fixed_columns:
+        if col in fixed_columns or col.endswith('_Max'):
             continue
         
-        # Skip if this is a _Max column (already processed)
-        if col.endswith('_Max'):
-            continue
-            
-        # Check if there's a corresponding _Max column
         max_col = col + '_Max'
         if max_col in df.columns:
             subjects.append((col, col, max_col))
         else:
-            # Default max = 100
             subjects.append((col, col, None))
     
     return subjects
 
 
 def calculate_subject_percentage(obtained: float, max_marks: float) -> float:
-    """Calculate percentage: (obtained / max) * 100, rounded to 2 decimals"""
+    """Calculate percentage: (obtained / max) * 100"""
     if max_marks == 0:
         return 0.0
-    percentage = (obtained / max_marks) * 100
-    return round(percentage, 2)
+    return round((obtained / max_marks) * 100, 2)
 
 
 def is_subject_pass(percentage: float) -> bool:
-    """Return True if percentage >= 33%, else False"""
+    """Return True if percentage >= PASS_THRESHOLD"""
     return percentage >= PASS_THRESHOLD
 
 
 def get_grade(percentage: float) -> str:
-    """
-    Assign grade based on percentage.
-    A+(90+), A(80-89), B(70-79), C(60-69), D(50-59), E(33-49), F(<33)
-    """
+    """Assign grade based on percentage."""
     if percentage >= 90:
         return "A+"
     elif percentage >= 80:
@@ -131,171 +97,208 @@ def get_grade(percentage: float) -> str:
 
 
 def determine_overall_result(subject_percentages: List[float]) -> bool:
-    """
-    CRITICAL: Determine PASS/FAIL based on subject percentages.
-    FAIL if ANY subject is below 33%.
-    PASS only if ALL subjects are 33% or above.
-    """
-    for percentage in subject_percentages:
-        if percentage < PASS_THRESHOLD:
-            return False  # FAIL
-    return True  # PASS
+    """PASS only if ALL subjects are >= PASS_THRESHOLD"""
+    return all(p >= PASS_THRESHOLD for p in subject_percentages)
 
 
-# ============================================================================
-# STUDENT RESULT CALCULATION
-# ============================================================================
-
-def calculate_student_result(student_row: pd.Series, subjects: List[Tuple[str, str, Optional[str]]]) -> Dict:
+def calculate_student_result(student_row: pd.Series, subjects: List[Tuple[str, str, Optional[str]]]) -> Optional[Dict]:
     """
     Calculate complete result for a student.
+    Returns None if data is invalid.
     """
-    # allow student_row to be a dict or a pandas Series
-    def _has(col):
-        try:
-            return col in student_row.index
-        except Exception:
-            return col in student_row
+    try:
+        # Validate required fields
+        if pd.isna(student_row.get('RollNo')) or pd.isna(student_row.get('StudentName')):
+            return None
+        
+        roll_no = int(student_row['RollNo'])
+        name = str(student_row['StudentName']).strip()
+        
+        if not name:
+            return None
+        
+        result = {
+            'roll_no': roll_no,
+            'name': name,
+            'subjects': [],
+            'total_obtained': 0,
+            'total_max': 0,
+            'failed_subjects': [],
+            'is_valid': True
+        }
+        
+        subject_percentages = []
+        
+        for subject_name, marks_col, max_col in subjects:
+            # Check if marks exist and are valid
+            if pd.isna(student_row.get(marks_col)):
+                return None  # Missing marks = invalid student
+            
+            try:
+                obtained = float(student_row[marks_col])
+                
+                # Get max marks
+                if max_col and not pd.isna(student_row.get(max_col)):
+                    max_marks = float(student_row[max_col])
+                else:
+                    max_marks = 100.0
+                
+                # Validate marks
+                if obtained < 0 or obtained > max_marks:
+                    return None
+                
+                percentage = calculate_subject_percentage(obtained, max_marks)
+                subject_percentages.append(percentage)
+                
+                is_pass = is_subject_pass(percentage)
+                status = "PASS" if is_pass else "FAIL"
+                
+                if not is_pass:
+                    result['failed_subjects'].append(f"{subject_name}")
+                
+                grade = get_grade(percentage)
+                
+                result['subjects'].append({
+                    'name': subject_name,
+                    'obtained': obtained,
+                    'max': max_marks,
+                    'percentage': percentage,
+                    'grade': grade,
+                    'status': status
+                })
+                
+                result['total_obtained'] += obtained
+                result['total_max'] += max_marks
+                
+            except (ValueError, TypeError):
+                return None
+        
+        # Calculate overall results
+        if result['total_max'] > 0:
+            result['overall_percentage'] = calculate_subject_percentage(result['total_obtained'], result['total_max'])
+            result['overall_grade'] = get_grade(result['overall_percentage'])
+            result['overall_status'] = "PASS" if determine_overall_result(subject_percentages) else "FAIL"
+        else:
+            return None
+        
+        return result
+        
+    except Exception:
+        return None
 
-    def _get(col):
-        try:
-            return student_row[col]
-        except Exception:
-            return student_row.get(col)
 
-    result = {
-        'roll_no': int(_get('RollNo')),
-        'name': _get('StudentName'),
-        'subjects': [],
-        'total_obtained': 0,
-        'total_max': 0,
-        'failed_subjects': []
-    }
+def calculate_positions(students_results: List[Dict]) -> List[Dict]:
+    """Calculate position/rank for each student based on percentage."""
+    if not students_results:
+        return students_results
     
-    subject_percentages = []
+    # Sort by percentage (descending)
+    sorted_students = sorted(students_results, key=lambda x: x['overall_percentage'], reverse=True)
     
-    for subject_name, marks_col, max_col in subjects:
-        try:
-            # Ensure marks column exists
-            if not _has(marks_col):
-                raise KeyError(f"Subject '{subject_name}' has marks column missing")
-
-            obtained_raw = _get(marks_col)
-            obtained = float(obtained_raw) if obtained_raw is not None and obtained_raw != '' else 0.0
-
-            # Determine max marks
-            if max_col and _has(max_col):
-                max_marks_raw = _get(max_col)
-                max_marks = float(max_marks_raw) if max_marks_raw is not None and max_marks_raw != '' else 100.0
-            else:
-                max_marks = 100.0  # DEFAULT MAX
-
-            # Validate marks
-            if obtained > max_marks:
-                # Cap at max and record a warning (handled upstream if needed)
-                obtained = max_marks
-
-            # Calculate percentage
-            percentage = calculate_subject_percentage(obtained, max_marks)
-            subject_percentages.append(percentage)
-
-            # Determine pass/fail for subject
-            is_pass = is_subject_pass(percentage)
-            status = "PASS" if is_pass else "FAIL"
-
-            if not is_pass:
-                result['failed_subjects'].append(f"{subject_name} ({percentage}%)")
-
-            # Get grade
-            grade = get_grade(percentage)
-
-            # Add to subjects
-            result['subjects'].append({
-                'name': subject_name,
-                'obtained': obtained,
-                'max': max_marks,
-                'percentage': percentage,
-                'grade': grade,
-                'status': status
-            })
-
-            result['total_obtained'] += obtained
-            result['total_max'] += max_marks
-
-        except Exception as e:
-            # Append an error note to failed_subjects for visibility
-            result['failed_subjects'].append(f"{subject_name} (ERROR: {e})")
-            continue
+    # Assign positions
+    position = 1
+    prev_percentage = None
     
-    # Calculate overall results
-    if result['total_max'] > 0:
-        result['overall_percentage'] = calculate_subject_percentage(result['total_obtained'], result['total_max'])
-        result['overall_grade'] = get_grade(result['overall_percentage'])
-        result['overall_status'] = "PASS" if determine_overall_result(subject_percentages) else "FAIL"
-    else:
-        result['overall_percentage'] = 0
-        result['overall_grade'] = "F"
-        result['overall_status'] = "FAIL"
+    for i, student in enumerate(sorted_students):
+        if prev_percentage is not None and student['overall_percentage'] == prev_percentage:
+            student['position'] = position  # Same position for same percentage
+        else:
+            position = i + 1
+            student['position'] = position
+        
+        prev_percentage = student['overall_percentage']
     
-    return result
+    # Add suffix to position (1st, 2nd, 3rd, 4th, etc.)
+    for student in students_results:
+        pos = student['position']
+        if pos == 1:
+            student['position_str'] = "1st"
+        elif pos == 2:
+            student['position_str'] = "2nd"
+        elif pos == 3:
+            student['position_str'] = "3rd"
+        else:
+            student['position_str'] = f"{pos}th"
+    
+    return students_results
 
 
 # ============================================================================
-# PDF GENERATION - MULTIPLE STUDENTS PER PAGE (A4 LANDSCAPE)
+# PDF GENERATION - PREMIUM DESIGN
 # ============================================================================
 
 def create_result_card(student_result: Dict, class_name: str) -> Table:
     """
-    A4 Landscape narrow form ke liye optimized card
+    Create a single result card with premium design.
     """
     card_elements = []
     
-    # Logo and School Name in one row
-    header_data = []
-    
-    # Check for logo
+    # ===== LOGO CENTER MEIN =====
     logo_path = os.path.join(os.path.dirname(__file__), "logo.png")
+    
     if os.path.exists(logo_path):
-        logo = Image(logo_path, width=0.8*inch, height=0.8*inch)
-        header_data.append([logo, Paragraph(SCHOOL_NAME, 
-                           ParagraphStyle('School', fontSize=12, fontName='Helvetica-Bold', alignment=TA_CENTER))])
-        header_table = Table(header_data, colWidths=[0.8*inch, 6.7*inch])
-        header_table.setStyle(TableStyle([
-            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-            ('ALIGN', (0, 0), (0, 0), 'RIGHT'),
-            ('ALIGN', (1, 0), (1, 0), 'LEFT'),
+        # Logo center mein lagao
+        logo = Image(logo_path, width=1.5*inch, height=1.5*inch)
+        
+        # Logo ko center karne ka simple tareeka
+        logo_table = Table([[logo]], colWidths=[8.2*inch])
+        logo_table.setStyle(TableStyle([
+            ('ALIGN', (0, 0), (0, 0), 'CENTER'),
         ]))
+        
+        card_elements.append(logo_table)
     else:
-        header_data.append(['', Paragraph(SCHOOL_NAME, 
-                           ParagraphStyle('School', fontSize=12, fontName='Helvetica-Bold', alignment=TA_CENTER))])
-        header_table = Table(header_data, colWidths=[0.8*inch, 6.7*inch])
+        # Agar logo nahi hai to school name
+        school_style = ParagraphStyle(
+            'SchoolName',
+            fontSize=16,
+            fontName='Helvetica-Bold',
+            textColor=PRIMARY_COLOR,
+            alignment=TA_CENTER,
+        )
+        card_elements.append(Paragraph(SCHOOL_NAME, school_style))
     
-    card_elements.append(header_table)
-    card_elements.append(Spacer(1, 0.05*inch))
     
-    # Student Details - Ek line mein
-    details_data = [
-        [f"Roll No: {student_result['roll_no']}   |   Class: {class_name}   |   {student_result['name']}"]
-    ]
+    # ===== TITLE =====
+    title_style = ParagraphStyle(
+        'Title',
+        fontSize=12,
+        fontName='Helvetica-Bold',
+        textColor=SECONDARY_COLOR,
+        alignment=TA_CENTER,
+        spaceAfter=8
+    )
+    card_elements.append(Paragraph("ANNUAL EXAMINATION RESULT CARD", title_style))
     
-    details_table = Table(details_data, colWidths=[7.5*inch])
-    details_table.setStyle(TableStyle([
-        ('FONT', (0, 0), (-1, -1), 'Helvetica', 9),
-        ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
-        ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#f0f0f0')),
-        ('TOPPADDING', (0, 0), (-1, -1), 4),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
-        ('LEFTPADDING', (0, 0), (-1, -1), 6),
-        ('RIGHTPADDING', (0, 0), (-1, -1), 6),
-    ]))
-    card_elements.append(details_table)
-    card_elements.append(Spacer(1, 0.05*inch))
+    # ===== STUDENT INFO =====
+    info_style = ParagraphStyle(
+        'Info',
+        fontSize=10,
+        fontName='Helvetica',
+        alignment=TA_CENTER,
+        spaceAfter=8,
+        leading=14
+    )
     
-    # Subjects Table
-    subject_data = [['Subject', 'Marks', 'Max', '%', 'Grade', 'Status']]
+    info_text = f"<b>Roll No:</b> {student_result['roll_no']} | <b>Class:</b> {class_name} "
+    card_elements.append(Paragraph(info_text, info_style))
+    name_style = ParagraphStyle(
+    'Name',
+    fontSize=11,
+    fontName='Helvetica-Bold',
+    alignment=TA_CENTER,
+    spaceAfter=8,
+    textColor=PRIMARY_COLOR
+)
+    name_text = f"<b>Name: {student_result['name']}</b>"
+    card_elements.append(Paragraph(name_text, name_style))
+    
+    # ===== SUBJECTS TABLE - CENTERED WITH MORE WIDTH =====
+    subject_data = [['Subject', 'Marks', 'Max', 'Percentage', 'Grade', 'Status']]
+    
     for sub in student_result['subjects']:
         subject_data.append([
-            sub['name'][:12],
+            sub['name'],
             f"{sub['obtained']:.0f}",
             f"{sub['max']:.0f}",
             f"{sub['percentage']:.0f}%",
@@ -303,100 +306,141 @@ def create_result_card(student_result: Dict, class_name: str) -> Table:
             sub['status']
         ])
     
-    subject_table = Table(subject_data, 
-                         colWidths=[2.2*inch, 0.8*inch, 0.8*inch, 1.0*inch, 0.8*inch, 1.0*inch])
+    # Width badha di - har column ko zyada width di
+    subject_table = Table(subject_data, colWidths=[1.5*inch, 1.0*inch, 1.0*inch, 1.0*inch, 1.0*inch, 1.5*inch])
+    
     subject_table.setStyle(TableStyle([
-        ('FONT', (0, 0), (-1, -1), 'Helvetica', 8),
-        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-        ('ALIGN', (0, 0), (0, -1), 'LEFT'),
-        ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#cccccc')),
-        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1a1a4d')),
-        ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
-        ('FONT', (0, 0), (-1, 0), 'Helvetica-Bold', 8),
-        ('ROWBACKGROUNDS', (0, 1), (-1, -2), [colors.white, colors.HexColor('#f9f9f9')]),
-        ('TOPPADDING', (0, 0), (-1, -1), 4),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+        ('FONT', (0, 0), (-1, 0), 'Helvetica-Bold', 10),        # Header font bada
+        ('FONT', (0, 1), (-1, -1), 'Helvetica', 9),             # Data font bada
+        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),                  # Sab center
+        ('BACKGROUND', (0, 0), (-1, 0), PRIMARY_COLOR),         # Header background
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),           # Header text white
+        ('GRID', (0, 0), (-1, -1), 1, colors.HexColor('#cccccc')),  # Grid lines thicker
+        ('ROWBACKGROUNDS', (0, 1), (-1, -2), [colors.white, LIGHT_BG]),
+        ('TOPPADDING', (0, 0), (-1, -1), 8),                     # Padding bada
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 8),                  # Padding bada
+        ('LEFTPADDING', (0, 0), (-1, -1), 6),                    # Left padding
+        ('RIGHTPADDING', (0, 0), (-1, -1), 6),                   # Right padding
     ]))
+    
+    # Color coding for status
+    for i, sub in enumerate(student_result['subjects'], start=1):
+        if sub['status'] == 'PASS':
+            subject_table.setStyle(TableStyle([('TEXTCOLOR', (5, i), (5, i), SUCCESS_COLOR)]))
+        else:
+            subject_table.setStyle(TableStyle([('TEXTCOLOR', (5, i), (5, i), DANGER_COLOR)]))
+    
+    # Table ko center karo
+    subject_table.hAlign = 'CENTER'
+    
+    # Add to card
     card_elements.append(subject_table)
-    card_elements.append(Spacer(1, 0.05*inch))
     
-    # Overall Result
-    status_color = colors.HexColor('#00aa00') if student_result['overall_status'] == 'PASS' else colors.HexColor('#cc0000')
+    # ===== TOTAL, PERCENTAGE, GRADE =====
+    summary_style = ParagraphStyle(
+        'Summary',
+        fontSize=12,
+        fontName='Helvetica-Bold',
+        alignment=TA_CENTER,
+        spaceAfter=8
+    )
     
-    result_data = [[
-        f"Total: {student_result['total_obtained']:.0f}/{student_result['total_max']:.0f}",
-        f"Percentage: {student_result['overall_percentage']:.1f}%",
-        f"Grade: {student_result['overall_grade']}",
-        f"Result: {student_result['overall_status']}"
-    ]]
+    summary_text = f"<b>Total: {student_result['total_obtained']:.0f}/{student_result['total_max']:.0f} | Percentage: {student_result['overall_percentage']:.1f}% | Grade: {student_result['overall_grade']}</b>"
+    card_elements.append(Paragraph(summary_text, summary_style))
     
-    result_table = Table(result_data, colWidths=[1.8*inch, 1.8*inch, 1.8*inch, 1.8*inch])
-    result_table.setStyle(TableStyle([
-        ('FONT', (0, 0), (-1, -1), 'Helvetica', 8),
-        ('FONT', (0, 0), (-1, -1), 'Helvetica-Bold', 8),
-        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-        ('TEXTCOLOR', (3, 0), (3, 0), status_color),
-        ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#e6e6ff')),
-        ('TOPPADDING', (0, 0), (-1, -1), 4),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
-    ]))
-    card_elements.append(result_table)
+    # ===== LINE SEPARATOR =====
+   
     
-    # Signature Line
-    signature_data = [[f"Date: {datetime.now().strftime('%d-%m-%Y')}", "Principal Signature: _______________"]]
-    signature_table = Table(signature_data, colWidths=[2.5*inch, 5.0*inch])
-    signature_table.setStyle(TableStyle([
-        ('FONT', (0, 0), (-1, -1), 'Helvetica', 7),
+    # ===== POSITION (LEFT) AND RESULT (RIGHT) IN SAME LINE =====
+    pr_data = []
+    
+    # Position (left)
+    position_color = SECONDARY_COLOR if student_result['position'] <= 3 else PRIMARY_COLOR
+    position_text = f"<b>POSITION: {student_result['position_str']}</b>"
+    position_para = Paragraph(position_text, ParagraphStyle(
+        'Position',
+        fontSize=10,
+        fontName='Helvetica-Bold',
+        textColor=position_color,
+        alignment=TA_LEFT
+    ))
+    
+    # Result (right)
+    result_color = SUCCESS_COLOR if student_result['overall_status'] == 'PASS' else DANGER_COLOR
+    result_text = f"<b>RESULT: {student_result['overall_status']}</b>"
+    result_para = Paragraph(result_text, ParagraphStyle(
+        'Result',
+        fontSize=10,
+        fontName='Helvetica-Bold',
+        textColor=result_color,
+        alignment=TA_RIGHT
+    ))
+    
+    pr_data.append([position_para, result_para])
+    
+    pr_table = Table(pr_data, colWidths=[3.5*inch, 3.5*inch])
+    pr_table.setStyle(TableStyle([
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
         ('ALIGN', (0, 0), (0, 0), 'LEFT'),
         ('ALIGN', (1, 0), (1, 0), 'RIGHT'),
-        ('TOPPADDING', (0, 0), (-1, -1), 4),
+        ('LEFTPADDING', (0, 0), (0, 0), 10),
+        ('RIGHTPADDING', (1, 0), (1, 0), 10),
     ]))
-    card_elements.append(signature_table)
+    pr_table.hAlign = 'CENTER'
+    card_elements.append(pr_table)
     
-    # Card border
+    # ===== FOOTER with Principal Signature =====
+    footer_style = ParagraphStyle(
+        'Footer',
+        fontSize=10,
+        fontName='Helvetica',
+        alignment=TA_RIGHT,
+        textColor=colors.grey
+    )
+    card_elements.append(Paragraph("Principal Signature : ---------------------------------- ", footer_style))
+    
+    
+    # ===== WRAP EVERYTHING IN A BORDER =====
     card_table = Table([[e] for e in card_elements])
     card_table.setStyle(TableStyle([
-        ('BOX', (0, 0), (-1, -1), 1, colors.HexColor('#1a1a4d')),
+        ('BOX', (0, 0), (-1, -1), 1, PRIMARY_COLOR),
         ('BACKGROUND', (0, 0), (-1, -1), colors.white),
-        ('TOPPADDING', (0, 0), (-1, -1), 6),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
-        ('LEFTPADDING', (0, 0), (-1, -1), 6),
-        ('RIGHTPADDING', (0, 0), (-1, -1), 6),
+        ('TOPPADDING', (0, 0), (-1, -1), 12),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 10),
+        ('LEFTPADDING', (0, 0), (-1, -1), 12),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 12),
     ]))
     
+    card_table.hAlign = 'CENTER'
     return card_table
 
 
-def generate_multi_result_pdf(students_results: List[Dict], class_name: str, output_path: str) -> bool:
+def generate_result_pdf(students_results: List[Dict], class_name: str, output_path: str) -> bool:
     """
-    A4 Landscape - 2 cards per page (vertical)
+    Generate PDF with 2 cards per page (A4 Portrait)
     """
     try:
-        # A4 Landscape size
         doc = SimpleDocTemplate(output_path, 
-                               pagesize=landscape(A4),
-                               rightMargin=0.3*inch, 
-                               leftMargin=0.3*inch,
-                               topMargin=0.3*inch, 
-                               bottomMargin=0.3*inch)
+                               pagesize=A4,
+                               rightMargin=0.4*inch, 
+                               leftMargin=0.4*inch,
+                               topMargin=0.4*inch, 
+                               bottomMargin=0.4*inch)
         
         elements = []
         
         for i in range(0, len(students_results), 2):
-            student1 = students_results[i]
-            student2 = students_results[i+1] if i+1 < len(students_results) else None
-            
             # Card 1
-            card1 = create_result_card(student1, class_name)
+            card1 = create_result_card(students_results[i], class_name)
             elements.append(card1)
             elements.append(Spacer(1, 0.2*inch))
             
             # Card 2 (if exists)
-            if student2:
-                card2 = create_result_card(student2, class_name)
+            if i + 1 < len(students_results):
+                card2 = create_result_card(students_results[i+1], class_name)
                 elements.append(card2)
             
-            # New page if more students left
+            # Page break if more students left
             if i + 2 < len(students_results):
                 elements.append(PageBreak())
         
@@ -404,69 +448,59 @@ def generate_multi_result_pdf(students_results: List[Dict], class_name: str, out
         return True
         
     except Exception as e:
-        print(f"Error in PDF generation: {e}")
+        print(f"PDF Error: {e}")
         return False
 
 
 # ============================================================================
-# EXCEL FILE PROCESSING
+# EXCEL PROCESSING
 # ============================================================================
 
 def load_excel_file(file_path: str) -> Optional[Tuple[pd.DataFrame, List[Tuple[str, str, Optional[str]]]]]:
-    """Load Excel file and detect subjects with max marks."""
+    """Load and validate Excel file."""
     try:
         df = pd.read_excel(file_path)
         
-        # Validate required columns
         required_cols = ['RollNo', 'StudentName']
         for col in required_cols:
             if col not in df.columns:
-                print(f"Missing required column: {col}")
                 return None
         
-        # Detect subjects
         subjects = detect_subjects_and_max_marks(df)
         
         if not subjects:
-            print("No subjects detected")
             return None
         
         return df, subjects
         
-    except Exception as e:
-        print(f"Error loading Excel file: {e}")
+    except Exception:
         return None
 
 
 def process_class_to_pdf(class_name: str, class_data_dir: str, output_dir: str, 
                          single_roll_no: Optional[int] = None, 
                          progress_callback=None) -> Tuple[int, int, List[str]]:
-    """Process all students in a class and generate PDFs."""
-    total_generated = 0
-    total_failed = 0
-    error_messages = []
+    """Process class and generate PDF with valid students only."""
     
-    # Find Excel file
     excel_file = os.path.join(class_data_dir, f"{class_name}.xlsx")
-    if not os.path.exists(excel_file):
-        error_messages.append(f"Excel file not found: {class_name}.xlsx")
-        return 0, 0, error_messages
     
-    # Load Excel file
+    if not os.path.exists(excel_file):
+        return 0, 0, [f"File not found: {class_name}.xlsx"]
+    
     result = load_excel_file(excel_file)
     if result is None:
-        error_messages.append(f"Failed to load Excel file: {class_name}.xlsx")
-        return 0, 0, error_messages
+        return 0, 0, ["Invalid Excel format"]
     
     df, subjects = result
     
-    # Create output subdirectory
     output_subdir = os.path.join(output_dir, f"{class_name}_results")
     os.makedirs(output_subdir, exist_ok=True)
     
-    # Process students
+    # Process all students
     students = df.to_dict('records')
-    all_results = []
+    valid_results = []
+    invalid_count = 0
+    errors = []
     
     for idx, student_row in enumerate(students):
         try:
@@ -474,47 +508,50 @@ def process_class_to_pdf(class_name: str, class_data_dir: str, output_dir: str,
             if single_roll_no and int(student_row['RollNo']) != single_roll_no:
                 continue
             
-            # Calculate result
+            # Calculate result (returns None if invalid)
             student_result = calculate_student_result(student_row, subjects)
-            all_results.append(student_result)
             
-            # Update progress
+            if student_result:
+                valid_results.append(student_result)
+            else:
+                invalid_count += 1
+                if not pd.isna(student_row.get('RollNo')):
+                    errors.append(f"Invalid data for Roll No: {student_row.get('RollNo', 'Unknown')}")
+            
             if progress_callback:
                 progress_callback(idx + 1, len(students))
                 
         except Exception as e:
-            total_failed += 1
-            error_messages.append(f"Error processing student {student_row.get('RollNo', 'Unknown')}: {e}")
+            invalid_count += 1
     
-    # Generate single PDF with all results
-    if all_results:
-        pdf_filename = f"{class_name}_All_Results_Landscape.pdf"
+    # Calculate positions for valid students
+    if valid_results:
+        valid_results = calculate_positions(valid_results)
+        
+        # Generate PDF
+        pdf_filename = f"{class_name}_Results.pdf"
         pdf_path = os.path.join(output_subdir, pdf_filename)
         
-        if generate_multi_result_pdf(all_results, class_name, pdf_path):
-            total_generated = len(all_results)
-        else:
-            total_failed = len(all_results)
-            error_messages.append("Failed to generate PDF")
+        if generate_result_pdf(valid_results, class_name, pdf_path):
+            return len(valid_results), invalid_count, errors
     
-    return total_generated, total_failed, error_messages
+    return 0, invalid_count, errors
 
 
 # ============================================================================
-# GUI APPLICATION (Tkinter-based)
+# GUI APPLICATION
 # ============================================================================
 
 class ResultSystemGUI:
     def __init__(self, root):
         self.root = root
-        self.root.title("School Result System - The Blessing School")
+        self.root.title("The Blessing School - Result System v3.0")
         self.root.geometry("800x700")
         
         self.base_dir = os.path.dirname(os.path.abspath(__file__))
         self.class_data_dir = os.path.join(self.base_dir, "CLASS_DATA")
         self.output_dir = os.path.join(self.base_dir, "OUTPUT")
         
-        # Create directories if needed
         os.makedirs(self.class_data_dir, exist_ok=True)
         os.makedirs(self.output_dir, exist_ok=True)
         
@@ -529,85 +566,70 @@ class ResultSystemGUI:
         title_frame = ttk.Frame(self.root)
         title_frame.pack(fill="x", padx=10, pady=10)
         
-        title = ttk.Label(title_frame, text="🏫 The Blessing School - RESULT CARD GENERATOR v2.0", 
+        title = ttk.Label(title_frame, 
+                         text="🏫 The Blessing School - RESULT CARD GENERATOR v3.0 (Premium)", 
                          font=("Arial", 12, "bold"))
         title.pack()
         
-        # Separator
-        separator = ttk.Separator(self.root, orient="horizontal")
-        separator.pack(fill="x", padx=10, pady=5)
+        ttk.Separator(self.root).pack(fill="x", padx=10, pady=5)
         
-        # Main content frame
-        content_frame = ttk.Frame(self.root)
-        content_frame.pack(fill="both", expand=True, padx=10, pady=10)
+        # Main content
+        content = ttk.Frame(self.root)
+        content.pack(fill="both", expand=True, padx=10, pady=10)
         
         # Class selection
-        ttk.Label(content_frame, text="SELECT CLASS:").pack(anchor="w")
+        ttk.Label(content, text="SELECT CLASS:").pack(anchor="w")
         self.class_var = tk.StringVar(value=CLASSES[0])
-        class_combo = ttk.Combobox(content_frame, textvariable=self.class_var, 
+        class_combo = ttk.Combobox(content, textvariable=self.class_var, 
                                   values=CLASSES, state="readonly", width=30)
         class_combo.pack(anchor="w", pady=5)
         class_combo.bind("<<ComboboxSelected>>", self.on_class_selected)
         
-        # Class info
-        ttk.Label(content_frame, text="CLASS DETAILS:").pack(anchor="w", pady=(15, 5))
-        self.info_text = tk.Text(content_frame, height=5, width=70, state="disabled", 
+        # Info
+        ttk.Label(content, text="CLASS DETAILS:").pack(anchor="w", pady=(15, 5))
+        self.info_text = tk.Text(content, height=6, width=70, state="disabled", 
                                 font=("Courier", 9), bg="#f0f0f0")
         self.info_text.pack(pady=5)
         
         # Options
-        ttk.Label(content_frame, text="GENERATION OPTIONS:").pack(anchor="w", pady=(15, 5))
+        ttk.Label(content, text="GENERATION OPTIONS:").pack(anchor="w", pady=(15, 5))
         
         self.option_var = tk.StringVar(value="all")
-        ttk.Radiobutton(content_frame, text="ALL STUDENTS - Generate all result cards", 
+        ttk.Radiobutton(content, text="ALL STUDENTS", 
                        variable=self.option_var, value="all").pack(anchor="w")
         
-        roll_frame = ttk.Frame(content_frame)
+        roll_frame = ttk.Frame(content)
         roll_frame.pack(anchor="w", pady=5)
-        ttk.Radiobutton(roll_frame, text="SINGLE STUDENT - Roll Number:", 
+        ttk.Radiobutton(roll_frame, text="SINGLE - Roll No:", 
                        variable=self.option_var, value="single").pack(side="left")
         self.roll_var = tk.StringVar()
-        roll_entry = ttk.Entry(roll_frame, textvariable=self.roll_var, width=15)
-        roll_entry.pack(side="left", padx=10)
+        ttk.Entry(roll_frame, textvariable=self.roll_var, width=15).pack(side="left", padx=10)
         
         # Buttons
-        button_frame = ttk.Frame(content_frame)
-        button_frame.pack(pady=15)
+        btn_frame = ttk.Frame(content)
+        btn_frame.pack(pady=15)
         
-        ttk.Button(button_frame, text="📥 GENERATE PDFs", 
+        ttk.Button(btn_frame, text="📥 GENERATE PDFs", 
                   command=self.generate_pdfs).pack(side="left", padx=5)
-        ttk.Button(button_frame, text="📂 OPEN OUTPUT FOLDER", 
+        ttk.Button(btn_frame, text="📂 OPEN OUTPUT", 
                   command=self.open_output).pack(side="left", padx=5)
         
         # Progress
-        ttk.Label(content_frame, text="PROGRESS:").pack(anchor="w", pady=(15, 5))
-        self.progress = ttk.Progressbar(content_frame, length=300, mode="determinate")
+        ttk.Label(content, text="PROGRESS:").pack(anchor="w", pady=(15, 5))
+        self.progress = ttk.Progressbar(content, length=300, mode="determinate")
         self.progress.pack(anchor="w", pady=5)
         
-        self.status_label = ttk.Label(content_frame, text="Ready...", foreground="black")
+        self.status_label = ttk.Label(content, text="Ready...", foreground="black")
         self.status_label.pack(anchor="w")
         
-        self.output_label = ttk.Label(content_frame, text="", foreground="green", 
-                                     font=("Courier", 8))
-        self.output_label.pack(anchor="w", pady=5)
+        # Features
+        features = "✨ Features: 2 Cards/Page | Position Ranking | Auto-validation | Premium Design"
+        ttk.Label(content, text=features, foreground="green", font=("Arial", 8)).pack(pady=10)
         
-        # Warning
-        warning_frame = ttk.Frame(content_frame)
-        warning_frame.pack(fill="x", pady=(15, 0))
-        ttk.Label(warning_frame, text="⚠️ Pass Criteria: 33% in EACH subject required for PASS", 
-                 foreground="orange", font=("Arial", 9)).pack()
-        
-        # Note about output format
-        note_frame = ttk.Frame(content_frame)
-        note_frame.pack(fill="x", pady=(5, 0))
-        ttk.Label(note_frame, text="📄 Output: A4 Landscape | 2 Cards per page | Single PDF file", 
-                 foreground="blue", font=("Arial", 8)).pack()
-        
-        # Initial class info
         self.update_class_info()
     
     def update_class_info(self):
-        """Update class information display"""
+        """Update class info display"""
         class_name = self.class_var.get()
         excel_file = os.path.join(self.class_data_dir, f"{class_name}.xlsx")
         
@@ -620,26 +642,21 @@ class ResultSystemGUI:
                 df, subjects = result
                 self.current_subjects = subjects
                 
-                info = f"✅ File found: {class_name}.xlsx\n"
-                info += f"   • Total Students: {len(df)}\n"
-                info += f"   • Subjects Found: {len(subjects)}\n"
-                info += f"   • Subjects: {', '.join([s[0] for s in subjects])}\n"
-                info += f"   • Max marks detected from _Max columns\n"
-                info += f"   • Pass marks: 33% in each subject"
+                info = f"✅ File: {class_name}.xlsx\n"
+                info += f"📊 Students: {len(df)}\n"
+                info += f"📚 Subjects: {', '.join([s[0] for s in subjects])}\n"
+                info += f"⚠️ Invalid entries will be skipped automatically"
                 self.info_text.insert("end", info)
             else:
-                self.info_text.insert("end", "⚠️ Error loading class file")
+                self.info_text.insert("end", "❌ Invalid file format")
                 self.current_subjects = None
         else:
-            info = f"❌ File not found: CLASS_DATA/{class_name}.xlsx\n"
-            info += f"   Please create this file with the required format"
-            self.info_text.insert("end", info)
+            self.info_text.insert("end", f"❌ File not found: {class_name}.xlsx")
             self.current_subjects = None
         
         self.info_text.config(state="disabled")
     
     def on_class_selected(self, event=None):
-        """Handle class selection change"""
         self.update_class_info()
     
     def generate_pdfs(self):
@@ -651,8 +668,7 @@ class ResultSystemGUI:
         class_name = self.class_var.get()
         
         if not self.current_subjects:
-            messagebox.showerror("Error", 
-                f"Excel file not found or invalid:\n{self.class_data_dir}/{class_name}.xlsx")
+            messagebox.showerror("Error", "Invalid class file")
             return
         
         single_roll = None
@@ -660,10 +676,9 @@ class ResultSystemGUI:
             try:
                 single_roll = int(self.roll_var.get())
             except:
-                messagebox.showerror("Error", "Please enter a valid Roll Number")
+                messagebox.showerror("Error", "Invalid Roll Number")
                 return
         
-        # Run generation in separate thread
         self.processing = True
         thread = threading.Thread(target=self.generate_pdfs_thread, 
                                  args=(class_name, single_roll))
@@ -671,45 +686,39 @@ class ResultSystemGUI:
         thread.start()
     
     def generate_pdfs_thread(self, class_name, single_roll):
-        """Generate PDFs in background thread"""
+        """Background thread"""
         try:
-            self.status_label.config(text="Starting generation...")
-            self.root.update()
+            self.status_label.config(text="Processing...")
             
             def progress_callback(current, total):
                 pct = int((current / total) * 100) if total > 0 else 0
                 self.progress['value'] = pct
-                self.status_label.config(text=f"Processing: {current}/{total} students...")
+                self.status_label.config(text=f"Processing: {current}/{total}")
                 self.root.update()
             
-            generated, failed, errors = process_class_to_pdf(
-                class_name,
-                self.class_data_dir,
-                self.output_dir,
-                single_roll,
-                progress_callback
+            generated, invalid, errors = process_class_to_pdf(
+                class_name, self.class_data_dir, self.output_dir,
+                single_roll, progress_callback
             )
             
             self.progress['value'] = 100
             
-            output_subdir = os.path.join(self.output_dir, f"{class_name}_results")
-            pdf_file = os.path.join(output_subdir, f"{class_name}_All_Results_Landscape.pdf")
+            output_file = os.path.join(self.output_dir, f"{class_name}_results", f"{class_name}_Results.pdf")
             
             if generated > 0:
-                self.status_label.config(text=f"✅ SUCCESS: {generated} result cards generated")
-                self.output_label.config(text=f"📁 OUTPUT: {pdf_file}")
-                messagebox.showinfo("Success", 
-                    f"✅ Successfully generated {generated} result cards in a single PDF!\n\n"
-                    + (f"⚠️ {failed} cards failed\n" if failed > 0 else "") +
-                    f"\n📁 Location: {pdf_file}")
+                msg = f"✅ Generated: {generated} cards\n"
+                if invalid > 0:
+                    msg += f"⚠️ Skipped: {invalid} invalid entries\n"
+                msg += f"\n📁 {output_file}"
+                
+                self.status_label.config(text=f"Success: {generated} cards")
+                messagebox.showinfo("Success", msg)
             else:
-                self.status_label.config(text="❌ No result cards generated")
-                messagebox.showerror("Error", "Failed to generate result cards")
+                self.status_label.config(text="No valid students")
+                messagebox.showerror("Error", "No valid students found")
         
         except Exception as e:
-            self.status_label.config(text=f"❌ ERROR: {str(e)}")
-            messagebox.showerror("Error", f"Error: {str(e)}")
-        
+            messagebox.showerror("Error", str(e))
         finally:
             self.processing = False
     
@@ -718,22 +727,15 @@ class ResultSystemGUI:
         try:
             if sys.platform == "win32":
                 os.startfile(self.output_dir)
-            else:
-                subprocess.Popen(['xdg-open', self.output_dir])
         except:
-            messagebox.showerror("Error", "Could not open folder")
+            messagebox.showerror("Error", "Cannot open folder")
 
 
 # ============================================================================
-# MAIN ENTRY POINT
+# MAIN
 # ============================================================================
-
-def main():
-    """Main entry point"""
-    root = tk.Tk()
-    gui = ResultSystemGUI(root)
-    root.mainloop()
-
 
 if __name__ == '__main__':
-    main()
+    root = tk.Tk()
+    app = ResultSystemGUI(root)
+    root.mainloop()
