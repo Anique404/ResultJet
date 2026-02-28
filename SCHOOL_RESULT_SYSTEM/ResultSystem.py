@@ -17,11 +17,11 @@ import threading
 from typing import List, Dict, Tuple, Optional
 import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
-from reportlab.lib.pagesizes import A4
+from reportlab.lib.pagesizes import A4, landscape
 from reportlab.lib import colors
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import inch
-from reportlab.platypus import Image, SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, PageBreak
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, PageBreak, Image
 from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
 import math
 import subprocess
@@ -42,8 +42,9 @@ CLASSES = [
     "ONE", "TWO", "THREE", "FOUR", "FIVE",
     "SIXTH", "SEVEN", "EIGHT", "NINE", "TEN"
 ]
+
 # ============================================================================
-# CORE FUNCTIONS - SUBJECT & PERCENTAGE CALCULATIONF
+# CORE FUNCTIONS - SUBJECT & PERCENTAGE CALCULATION
 # ============================================================================
 
 def detect_subjects_and_max_marks(df: pd.DataFrame) -> List[Tuple[str, str, Optional[str]]]:
@@ -240,185 +241,170 @@ def calculate_student_result(student_row: pd.Series, subjects: List[Tuple[str, s
 
 
 # ============================================================================
-# PDF GENERATION
+# PDF GENERATION - MULTIPLE STUDENTS PER PAGE (A4 LANDSCAPE)
 # ============================================================================
 
-def generate_result_card_pdf(student_result: Dict, class_name: str, output_path: str) -> bool:
+def create_result_card(student_result: Dict, class_name: str) -> Table:
     """
-    Generate a PDF result card for a student.
+    A4 Landscape narrow form ke liye optimized card
+    """
+    card_elements = []
+    
+    # Logo and School Name in one row
+    header_data = []
+    
+    # Check for logo
+    logo_path = os.path.join(os.path.dirname(__file__), "logo.png")
+    if os.path.exists(logo_path):
+        logo = Image(logo_path, width=0.8*inch, height=0.8*inch)
+        header_data.append([logo, Paragraph(SCHOOL_NAME, 
+                           ParagraphStyle('School', fontSize=12, fontName='Helvetica-Bold', alignment=TA_CENTER))])
+        header_table = Table(header_data, colWidths=[0.8*inch, 6.7*inch])
+        header_table.setStyle(TableStyle([
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('ALIGN', (0, 0), (0, 0), 'RIGHT'),
+            ('ALIGN', (1, 0), (1, 0), 'LEFT'),
+        ]))
+    else:
+        header_data.append(['', Paragraph(SCHOOL_NAME, 
+                           ParagraphStyle('School', fontSize=12, fontName='Helvetica-Bold', alignment=TA_CENTER))])
+        header_table = Table(header_data, colWidths=[0.8*inch, 6.7*inch])
+    
+    card_elements.append(header_table)
+    card_elements.append(Spacer(1, 0.05*inch))
+    
+    # Student Details - Ek line mein
+    details_data = [
+        [f"Roll No: {student_result['roll_no']}   |   Class: {class_name}   |   {student_result['name']}"]
+    ]
+    
+    details_table = Table(details_data, colWidths=[7.5*inch])
+    details_table.setStyle(TableStyle([
+        ('FONT', (0, 0), (-1, -1), 'Helvetica', 9),
+        ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+        ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#f0f0f0')),
+        ('TOPPADDING', (0, 0), (-1, -1), 4),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+        ('LEFTPADDING', (0, 0), (-1, -1), 6),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 6),
+    ]))
+    card_elements.append(details_table)
+    card_elements.append(Spacer(1, 0.05*inch))
+    
+    # Subjects Table
+    subject_data = [['Subject', 'Marks', 'Max', '%', 'Grade', 'Status']]
+    for sub in student_result['subjects']:
+        subject_data.append([
+            sub['name'][:12],
+            f"{sub['obtained']:.0f}",
+            f"{sub['max']:.0f}",
+            f"{sub['percentage']:.0f}%",
+            sub['grade'],
+            sub['status']
+        ])
+    
+    subject_table = Table(subject_data, 
+                         colWidths=[2.2*inch, 0.8*inch, 0.8*inch, 1.0*inch, 0.8*inch, 1.0*inch])
+    subject_table.setStyle(TableStyle([
+        ('FONT', (0, 0), (-1, -1), 'Helvetica', 8),
+        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+        ('ALIGN', (0, 0), (0, -1), 'LEFT'),
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#cccccc')),
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1a1a4d')),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+        ('FONT', (0, 0), (-1, 0), 'Helvetica-Bold', 8),
+        ('ROWBACKGROUNDS', (0, 1), (-1, -2), [colors.white, colors.HexColor('#f9f9f9')]),
+        ('TOPPADDING', (0, 0), (-1, -1), 4),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+    ]))
+    card_elements.append(subject_table)
+    card_elements.append(Spacer(1, 0.05*inch))
+    
+    # Overall Result
+    status_color = colors.HexColor('#00aa00') if student_result['overall_status'] == 'PASS' else colors.HexColor('#cc0000')
+    
+    result_data = [[
+        f"Total: {student_result['total_obtained']:.0f}/{student_result['total_max']:.0f}",
+        f"Percentage: {student_result['overall_percentage']:.1f}%",
+        f"Grade: {student_result['overall_grade']}",
+        f"Result: {student_result['overall_status']}"
+    ]]
+    
+    result_table = Table(result_data, colWidths=[1.8*inch, 1.8*inch, 1.8*inch, 1.8*inch])
+    result_table.setStyle(TableStyle([
+        ('FONT', (0, 0), (-1, -1), 'Helvetica', 8),
+        ('FONT', (0, 0), (-1, -1), 'Helvetica-Bold', 8),
+        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+        ('TEXTCOLOR', (3, 0), (3, 0), status_color),
+        ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#e6e6ff')),
+        ('TOPPADDING', (0, 0), (-1, -1), 4),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+    ]))
+    card_elements.append(result_table)
+    
+    # Signature Line
+    signature_data = [[f"Date: {datetime.now().strftime('%d-%m-%Y')}", "Principal Signature: _______________"]]
+    signature_table = Table(signature_data, colWidths=[2.5*inch, 5.0*inch])
+    signature_table.setStyle(TableStyle([
+        ('FONT', (0, 0), (-1, -1), 'Helvetica', 7),
+        ('ALIGN', (0, 0), (0, 0), 'LEFT'),
+        ('ALIGN', (1, 0), (1, 0), 'RIGHT'),
+        ('TOPPADDING', (0, 0), (-1, -1), 4),
+    ]))
+    card_elements.append(signature_table)
+    
+    # Card border
+    card_table = Table([[e] for e in card_elements])
+    card_table.setStyle(TableStyle([
+        ('BOX', (0, 0), (-1, -1), 1, colors.HexColor('#1a1a4d')),
+        ('BACKGROUND', (0, 0), (-1, -1), colors.white),
+        ('TOPPADDING', (0, 0), (-1, -1), 6),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+        ('LEFTPADDING', (0, 0), (-1, -1), 6),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 6),
+    ]))
+    
+    return card_table
+
+
+def generate_multi_result_pdf(students_results: List[Dict], class_name: str, output_path: str) -> bool:
+    """
+    A4 Landscape - 2 cards per page (vertical)
     """
     try:
-        # Create PDF
-        doc = SimpleDocTemplate(output_path, pagesize=A4,
-                               rightMargin=0.5*inch, leftMargin=0.5*inch,
-                               topMargin=0.5*inch, bottomMargin=0.5*inch)
+        # A4 Landscape size
+        doc = SimpleDocTemplate(output_path, 
+                               pagesize=landscape(A4),
+                               rightMargin=0.3*inch, 
+                               leftMargin=0.3*inch,
+                               topMargin=0.3*inch, 
+                               bottomMargin=0.3*inch)
         
         elements = []
         
-        # ============= LOGO ADD KARO YAHAN =============
-        # Logo ka path
-        logo_path = os.path.join(os.path.dirname(__file__), "logo.png")
-        
-        # Check if logo exists
-        if os.path.exists(logo_path):
-            # Logo ko center mein rakhna
-            logo = Image(logo_path, width=1.2*inch, height=1.2*inch)  # Size adjust kar sakta hai
-            logo.hAlign = 'CENTER'  # Center alignment
-            elements.append(logo)
-            elements.append(Spacer(1, 0.1*inch))  # Logo ke neeche thoda space
-        else:
-            # Agar logo na mile to koi baat nahi, continue
-            pass
-        # ================================================
-        
-        # Header
-        header_style = ParagraphStyle(
-            'CustomHeader',
-            parent=getSampleStyleSheet()['Heading1'],
-            fontSize=14,
-            textColor=colors.HexColor('#1a1a4d'),
-            spaceAfter=2,
-            alignment=TA_CENTER,
-            fontName='Helvetica-Bold'
-        )
-        
-        elements.append(Paragraph(SCHOOL_NAME, header_style))
-        
-        subheader_style = ParagraphStyle(
-            'Subheader',
-            parent=getSampleStyleSheet()['Normal'],
-            fontSize=10,
-            textColor=colors.HexColor('#333333'),
-            spaceAfter=6,
-            alignment=TA_CENTER,
-            fontName='Helvetica'
-        )
-        
-        elements.append(Paragraph("ANNUAL EXAMINATION RESULT", subheader_style))
-        elements.append(Spacer(1, 0.15*inch))
-        
-        # Student Details
-        details_data = [
-            ['ROLL NO:', str(student_result['roll_no'])],
-            ['STUDENT NAME:', student_result['name']],
-            # ['FATHER NAME:', student_result['father_name']],
-            ['CLASS:', f"{class_name} {chr(65)}"],
-        ]
-        
-        details_table = Table(details_data, colWidths=[2.2*inch, 4.3*inch])
-        details_table.setStyle(TableStyle([
-            ('FONT', (0, 0), (-1, -1), 'Helvetica', 10),
-            ('FONT', (0, 0), (0, -1), 'Helvetica-Bold', 10),
-            ('TEXTCOLOR', (0, 0), (0, -1), colors.HexColor('#1a1a4d')),
-            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-            ('TOPPADDING', (0, 0), (-1, -1), 4),
-            ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
-        ]))
-        
-        elements.append(details_table)
-        elements.append(Spacer(1, 0.15*inch))
-        
-        # Subject-wise results table
-        subject_data = [['SUBJECT', 'MARKS', 'MAX', '%', 'GRADE', 'STATUS']]
-        
-        for subject in student_result['subjects']:
-            marks_str = f"{subject['obtained']:.0f}" if subject['obtained'] == int(subject['obtained']) else f"{subject['obtained']:.2f}"
-            max_str = f"{subject['max']:.0f}" if subject['max'] == int(subject['max']) else f"{subject['max']:.2f}"
+        for i in range(0, len(students_results), 2):
+            student1 = students_results[i]
+            student2 = students_results[i+1] if i+1 < len(students_results) else None
             
-            subject_data.append([
-                subject['name'][:20],
-                marks_str,
-                max_str,
-                f"{subject['percentage']:.2f}%",
-                subject['grade'],
-                subject['status']
-            ])
+            # Card 1
+            card1 = create_result_card(student1, class_name)
+            elements.append(card1)
+            elements.append(Spacer(1, 0.2*inch))
+            
+            # Card 2 (if exists)
+            if student2:
+                card2 = create_result_card(student2, class_name)
+                elements.append(card2)
+            
+            # New page if more students left
+            if i + 2 < len(students_results):
+                elements.append(PageBreak())
         
-        # Add total row
-        total_obtained_str = f"{student_result['total_obtained']:.0f}" if student_result['total_obtained'] == int(student_result['total_obtained']) else f"{student_result['total_obtained']:.2f}"
-        total_max_str = f"{student_result['total_max']:.0f}" if student_result['total_max'] == int(student_result['total_max']) else f"{student_result['total_max']:.2f}"
-        
-        subject_data.append([
-            'TOTAL',
-            total_obtained_str,
-            total_max_str,
-            f"{student_result['overall_percentage']:.2f}%",
-            student_result['overall_grade'],
-            ''
-        ])
-        
-        # Create subject table
-        subject_table = Table(subject_data, colWidths=[2.0*inch, 1.0*inch, 0.8*inch, 1.0*inch, 0.8*inch, 0.9*inch])
-        subject_table.setStyle(TableStyle([
-            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1a1a4d')),
-            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
-            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-            ('ALIGN', (0, 0), (0, -1), 'LEFT'),
-            ('FONT', (0, 0), (-1, 0), 'Helvetica-Bold', 9),
-            ('FONT', (0, 1), (-1, -2), 'Helvetica', 9),
-            ('FONT', (0, -1), (-1, -1), 'Helvetica-Bold', 9),
-            ('BACKGROUND', (0, -1), (-1, -1), colors.HexColor('#e6e6ff')),
-            ('GRID', (0, 0), (-1, -1), 1, colors.HexColor('#cccccc')),
-            ('ROWBACKGROUNDS', (0, 1), (-1, -2), [colors.white, colors.HexColor('#f5f5f5')]),
-            ('TOPPADDING', (0, 0), (-1, -1), 6),
-            ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
-            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-        ]))
-        
-        elements.append(subject_table)
-        elements.append(Spacer(1, 0.2*inch))
-        
-        # Overall Result Section
-        result_color = colors.HexColor('#00aa00') if student_result['overall_status'] == 'PASS' else colors.HexColor('#cc0000')
-        
-        overall_data = [
-            ['TOTAL MARKS:', f"{student_result['total_obtained']:.0f} / {student_result['total_max']:.0f}"],
-            ['OVERALL %:', f"{student_result['overall_percentage']:.2f}%"],
-            ['GRADE:', student_result['overall_grade']],
-            ['RESULT:', f"{student_result['overall_status']}"]
-        ]
-        
-        # Add failed subjects info if applicable
-        if student_result['failed_subjects']:
-            failed_text = ", ".join(student_result['failed_subjects'])
-            overall_data.append(['FAILED IN:', failed_text])
-        
-        overall_table = Table(overall_data, colWidths=[2.5*inch, 4.0*inch])
-        overall_table.setStyle(TableStyle([
-            ('FONT', (0, 0), (0, -1), 'Helvetica-Bold', 10),
-            ('FONT', (1, 0), (1, -2), 'Helvetica', 10),
-            ('FONT', (1, -1), (1, -1), 'Helvetica-Bold', 12),
-            ('TEXTCOLOR', (0, 0), (0, -1), colors.HexColor('#1a1a4d')),
-            ('TEXTCOLOR', (1, -1), (1, -1), result_color),
-            ('BACKGROUND', (0, -1), (-1, -1), colors.HexColor('#ffffcc')),
-            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-            ('TOPPADDING', (0, 0), (-1, -1), 6),
-            ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
-            ('GRID', (0, 0), (-1, -1), 1, colors.HexColor('#cccccc')),
-        ]))
-        
-        elements.append(overall_table)
-        elements.append(Spacer(1, 0.3*inch))
-        
-        # Footer with signature space
-        footer_data = [
-            ['PRINCIPAL SIGNATURE: _______________', f"DATE: {datetime.now().strftime('%d-%m-%Y')}"]
-        ]
-        
-        footer_table = Table(footer_data, colWidths=[3.5*inch, 2.5*inch])
-        footer_table.setStyle(TableStyle([
-            ('FONT', (0, 0), (-1, -1), 'Helvetica', 9),
-            ('VALIGN', (0, 0), (-1, -1), 'BOTTOM'),
-            ('TOPPADDING', (0, 0), (-1, -1), 20),
-        ]))
-        
-        elements.append(footer_table)
-        
-        # Build PDF
         doc.build(elements)
         return True
         
     except Exception as e:
+        print(f"Error in PDF generation: {e}")
         return False
 
 
@@ -435,17 +421,20 @@ def load_excel_file(file_path: str) -> Optional[Tuple[pd.DataFrame, List[Tuple[s
         required_cols = ['RollNo', 'StudentName']
         for col in required_cols:
             if col not in df.columns:
+                print(f"Missing required column: {col}")
                 return None
         
         # Detect subjects
         subjects = detect_subjects_and_max_marks(df)
         
         if not subjects:
+            print("No subjects detected")
             return None
         
         return df, subjects
         
     except Exception as e:
+        print(f"Error loading Excel file: {e}")
         return None
 
 
@@ -466,7 +455,8 @@ def process_class_to_pdf(class_name: str, class_data_dir: str, output_dir: str,
     # Load Excel file
     result = load_excel_file(excel_file)
     if result is None:
-        return 0, 0, ["Failed to load Excel file"]
+        error_messages.append(f"Failed to load Excel file: {class_name}.xlsx")
+        return 0, 0, error_messages
     
     df, subjects = result
     
@@ -476,6 +466,7 @@ def process_class_to_pdf(class_name: str, class_data_dir: str, output_dir: str,
     
     # Process students
     students = df.to_dict('records')
+    all_results = []
     
     for idx, student_row in enumerate(students):
         try:
@@ -485,15 +476,7 @@ def process_class_to_pdf(class_name: str, class_data_dir: str, output_dir: str,
             
             # Calculate result
             student_result = calculate_student_result(student_row, subjects)
-            
-            # Generate PDF
-            pdf_filename = f"{student_result['roll_no']:03d}_{student_result['name'].replace(' ', '_')}_{class_name}_Result.pdf"
-            pdf_path = os.path.join(output_subdir, pdf_filename)
-            
-            if generate_result_card_pdf(student_result, class_name, pdf_path):
-                total_generated += 1
-            else:
-                total_failed += 1
+            all_results.append(student_result)
             
             # Update progress
             if progress_callback:
@@ -501,6 +484,18 @@ def process_class_to_pdf(class_name: str, class_data_dir: str, output_dir: str,
                 
         except Exception as e:
             total_failed += 1
+            error_messages.append(f"Error processing student {student_row.get('RollNo', 'Unknown')}: {e}")
+    
+    # Generate single PDF with all results
+    if all_results:
+        pdf_filename = f"{class_name}_All_Results_Landscape.pdf"
+        pdf_path = os.path.join(output_subdir, pdf_filename)
+        
+        if generate_multi_result_pdf(all_results, class_name, pdf_path):
+            total_generated = len(all_results)
+        else:
+            total_failed = len(all_results)
+            error_messages.append("Failed to generate PDF")
     
     return total_generated, total_failed, error_messages
 
@@ -548,7 +543,7 @@ class ResultSystemGUI:
         
         # Class selection
         ttk.Label(content_frame, text="SELECT CLASS:").pack(anchor="w")
-        self.class_var = tk.StringVar(value="10th")
+        self.class_var = tk.StringVar(value=CLASSES[0])
         class_combo = ttk.Combobox(content_frame, textvariable=self.class_var, 
                                   values=CLASSES, state="readonly", width=30)
         class_combo.pack(anchor="w", pady=5)
@@ -601,6 +596,12 @@ class ResultSystemGUI:
         warning_frame.pack(fill="x", pady=(15, 0))
         ttk.Label(warning_frame, text="⚠️ Pass Criteria: 33% in EACH subject required for PASS", 
                  foreground="orange", font=("Arial", 9)).pack()
+        
+        # Note about output format
+        note_frame = ttk.Frame(content_frame)
+        note_frame.pack(fill="x", pady=(5, 0))
+        ttk.Label(note_frame, text="📄 Output: A4 Landscape | 2 Cards per page | Single PDF file", 
+                 foreground="blue", font=("Arial", 8)).pack()
         
         # Initial class info
         self.update_class_info()
@@ -692,14 +693,15 @@ class ResultSystemGUI:
             self.progress['value'] = 100
             
             output_subdir = os.path.join(self.output_dir, f"{class_name}_results")
+            pdf_file = os.path.join(output_subdir, f"{class_name}_All_Results_Landscape.pdf")
             
             if generated > 0:
                 self.status_label.config(text=f"✅ SUCCESS: {generated} result cards generated")
-                self.output_label.config(text=f"📁 OUTPUT: {output_subdir}")
+                self.output_label.config(text=f"📁 OUTPUT: {pdf_file}")
                 messagebox.showinfo("Success", 
-                    f"✅ Successfully generated {generated} result cards!\n\n"
+                    f"✅ Successfully generated {generated} result cards in a single PDF!\n\n"
                     + (f"⚠️ {failed} cards failed\n" if failed > 0 else "") +
-                    f"\n📁 Location: {output_subdir}")
+                    f"\n📁 Location: {pdf_file}")
             else:
                 self.status_label.config(text="❌ No result cards generated")
                 messagebox.showerror("Error", "Failed to generate result cards")
