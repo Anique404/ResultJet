@@ -234,6 +234,8 @@ def create_result_card(student_result: Dict, class_name: str) -> Table:
     card_elements = []
     
     # ===== LOGO CENTER MEIN =====
+    card_elements.append(Spacer(1, 0.1*inch))
+
     logo_path = os.path.join(os.path.dirname(__file__), "logo.png")
     
     if os.path.exists(logo_path):
@@ -261,7 +263,7 @@ def create_result_card(student_result: Dict, class_name: str) -> Table:
     # ===== TITLE - SPACE KAM KARO =====
     title_style = ParagraphStyle(
         'Title',
-        fontSize=12,
+        fontSize=10,
         fontName='Helvetica-Bold',
         textColor=SECONDARY_COLOR,
         alignment=TA_CENTER,
@@ -272,11 +274,11 @@ def create_result_card(student_result: Dict, class_name: str) -> Table:
     # ===== STUDENT INFO - SPACE KAM KARO =====
     info_style = ParagraphStyle(
         'Info',
-        fontSize=10,
+        fontSize=9,
         fontName='Helvetica',
         alignment=TA_CENTER,
         spaceAfter=2,  # Pehle 8 tha, ab 2 karo
-        leading=12  # Pehle 14 tha, ab 12 karo
+        leading=10  # Pehle 14 tha, ab 10 karo
     )
     
     info_text = f"<b>Roll No:</b> {student_result['roll_no']} | <b>Class:</b> {class_name}"
@@ -284,7 +286,7 @@ def create_result_card(student_result: Dict, class_name: str) -> Table:
     
     name_style = ParagraphStyle(
         'Name',
-        fontSize=11,
+        fontSize=9,
         fontName='Helvetica-Bold',
         alignment=TA_CENTER,
         spaceAfter=4,  # Pehle 8 tha, ab 4 karo
@@ -311,15 +313,15 @@ def create_result_card(student_result: Dict, class_name: str) -> Table:
     subject_table = Table(subject_data, colWidths=[1.5*inch, 1.0*inch, 1.0*inch, 1.0*inch, 1.0*inch, 1.5*inch])
     
     subject_table.setStyle(TableStyle([
-        ('FONT', (0, 0), (-1, 0), 'Helvetica-Bold', 9),  # Header font chhota (10 se 9)
-        ('FONT', (0, 1), (-1, -1), 'Helvetica', 8),  # Data font chhota (9 se 8)
+        ('FONT', (0, 0), (-1, 0), 'Helvetica-Bold', 8),  # Header font chhota (10 se 9)
+        ('FONT', (0, 1), (-1, -1), 'Helvetica', 7),  # Data font chhota (9 se 8)
         ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
         ('BACKGROUND', (0, 0), (-1, 0), PRIMARY_COLOR),
         ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
         ('GRID', (0, 0), (-1, -1), 1, colors.HexColor('#cccccc')),
         ('ROWBACKGROUNDS', (0, 1), (-1, -2), [colors.white, LIGHT_BG]),
-        ('TOPPADDING', (0, 0), (-1, -1), 4),  # Padding kam (8 se 4)
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 4),  # Padding kam (8 se 4)
+        ('TOPPADDING', (0, 0), (-1, -1), 2),  # Padding kam (8 se 4)
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 2),  # Padding kam (8 se 4)
         ('LEFTPADDING', (0, 0), (-1, -1), 4),
         ('RIGHTPADDING', (0, 0), (-1, -1), 4),
     ]))
@@ -339,7 +341,7 @@ def create_result_card(student_result: Dict, class_name: str) -> Table:
     # ===== TOTAL, PERCENTAGE, GRADE =====
     summary_style = ParagraphStyle(
         'Summary',
-        fontSize=10,  # Pehle 12 tha, ab 10 karo
+        fontSize=9,  # Pehle 12 tha, ab 10 karo
         fontName='Helvetica-Bold',
         alignment=TA_CENTER,
         spaceAfter=4  # Pehle 8 tha, ab 4 karo
@@ -395,14 +397,16 @@ def create_result_card(student_result: Dict, class_name: str) -> Table:
         textColor=colors.grey
     )
     card_elements.append(Paragraph("Principal Signature: ____________________", footer_style))
+    card_elements.append(Spacer(1, 0.1*inch))
+
     
     # ===== WRAP EVERYTHING IN A BORDER =====
     card_table = Table([[e] for e in card_elements])
     card_table.setStyle(TableStyle([
         ('BOX', (0, 0), (-1, -1), 1, PRIMARY_COLOR),
         ('BACKGROUND', (0, 0), (-1, -1), colors.white),
-        ('TOPPADDING', (0, 0), (-1, -1), 6),  # Padding kam (12 se 6)
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 4),  # Padding kam (10 se 4)
+        ('TOPPADDING', (0, 0), (-1, -1), 4),  # Padding kam (12 se 6)
+        ('BOTTOMPADDING', (0, 0), (-1, -1),4 ),  # Padding kam (10 se 4)
         ('LEFTPADDING', (0, 0), (-1, -1), 8),  # Padding kam (12 se 8)
         ('RIGHTPADDING', (0, 0), (-1, -1), 8),  # Padding kam (12 se 8)
     ]))
