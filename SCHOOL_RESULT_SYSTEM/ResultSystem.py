@@ -240,7 +240,7 @@ def create_result_card(student_result: Dict, class_name: str) -> Table:
     
     if os.path.exists(logo_path):
         # Logo chhota karo
-        logo = Image(logo_path, width=0.8*inch, height=0.8*inch)
+        logo = Image(logo_path, width=0.9*inch, height=0.9*inch)
         
         # School Name Style
         school_style = ParagraphStyle(
@@ -508,7 +508,7 @@ def create_result_card(student_result: Dict, class_name: str) -> Table:
     ]))
     signature_table.hAlign = 'CENTER'
     card_elements.append(signature_table)
-    card_elements.append(Spacer(1, 0.1*inch))
+    card_elements.append(Spacer(1, 0.2*inch))
     
     # ===== WRAP EVERYTHING IN A BORDER =====
     card_table = Table([[e] for e in card_elements])
@@ -558,7 +558,7 @@ def generate_result_pdf(students_results: List[Dict], class_name: str, output_pa
                     'SeparatorLine',
                     fontSize=1,
                     alignment=TA_CENTER,
-                    textColor=colors.black,
+                    textColor=colors.darkblue,
                 )
                 # Create a line that spans the page width
                 line_text = "_" * 900  # 100 underscores
