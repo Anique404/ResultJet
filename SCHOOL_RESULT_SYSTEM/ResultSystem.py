@@ -240,7 +240,7 @@ def create_result_card(student_result: Dict, class_name: str) -> Table:
     
     if os.path.exists(logo_path):
         # Logo chhota karo
-        logo = Image(logo_path, width=0.6*inch, height=0.6*inch)
+        logo = Image(logo_path, width=0.9*inch, height=0.9*inch)
         
         # School Name Style
         school_style = ParagraphStyle(
@@ -397,8 +397,45 @@ def create_result_card(student_result: Dict, class_name: str) -> Table:
     card_elements.append(subject_table)
     card_elements.append(Spacer(1, 0.1*inch))
     
-    # ===== TOTAL, PERCENTAGE, GRADE =====
+    # ===== PERCENTAGE (LEFT) AND GRADE (RIGHT) IN SAME LINE =====
+    summary_data = []
     
+    # Percentage (left)
+    percentage_style = ParagraphStyle(
+        'Percentage',
+        fontSize=9,
+        fontName='Helvetica-Bold',
+        alignment=TA_LEFT,
+    )
+    percentage_text = f"<b>Percentage: {student_result['overall_percentage']:.1f}%</b>"
+    percentage_para = Paragraph(percentage_text, percentage_style)
+    
+    # Grade (right)
+    grade_style = ParagraphStyle(
+        'Grade',
+        fontSize=9,
+        fontName='Helvetica-Bold',
+        alignment=TA_RIGHT,
+    )
+    grade_text = f"<b>Grade: {student_result['overall_grade']}</b>"
+    grade_para = Paragraph(grade_text, grade_style)
+    
+    # Dono ek hi row mein
+    summary_data.append([percentage_para, grade_para])
+    
+    summary_table = Table(summary_data, colWidths=[3.6*inch, 3.6*inch])
+    summary_table.setStyle(TableStyle([
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('ALIGN', (0, 0), (0, 0), 'LEFT'),
+        ('ALIGN', (1, 0), (1, 0), 'RIGHT'),
+        ('LEFTPADDING', (0, 0), (0, 0), 10),
+        ('RIGHTPADDING', (1, 0), (1, 0), 40),
+        ('TOPPADDING', (0, 0), (-1, -1), 2),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
+    ]))
+    summary_table.hAlign = 'CENTER'
+    card_elements.append(summary_table)
+    card_elements.append(Spacer(1, 0.1*inch))
     
     # ===== POSITION (LEFT) AND RESULT (RIGHT) IN SAME LINE =====
     pr_data = []
@@ -414,18 +451,9 @@ def create_result_card(student_result: Dict, class_name: str) -> Table:
         alignment=TA_LEFT
     ))
     
-    # Result (right)
-    result_color = SUCCESS_COLOR if student_result['overall_status'] == 'PASS' else DANGER_COLOR
-    result_text = f"<b>RESULT: {student_result['overall_status']}</b>"
-    result_para = Paragraph(result_text, ParagraphStyle(
-        'Result',
-        fontSize=9,
-        fontName='Helvetica-Bold',
-        textColor=result_color,
-        alignment=TA_RIGHT
-    ))
+   
     
-    pr_data.append([position_para, result_para])
+    pr_data.append([position_para])
     
     pr_table = Table(pr_data, colWidths=[3.5*inch, 3.5*inch])
     pr_table.setStyle(TableStyle([
@@ -486,15 +514,14 @@ def create_result_card(student_result: Dict, class_name: str) -> Table:
     card_table.setStyle(TableStyle([
         # ('BOX', (0, 0), (-1, -1), 1, PRIMARY_COLOR),
         ('BACKGROUND', (0, 0), (-1, -1), colors.white),
-        ('TOPPADDING', (0, 0), (-1, -1), 1),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
+        ('TOPPADDING', (0, 0), (-1, -1), 0),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 0),
         ('LEFTPADDING', (0, 0), (-1, -1), 8),
         ('RIGHTPADDING', (0, 0), (-1, -1), 8),
     ]))
     
     card_table.hAlign = 'CENTER'
     return card_table
-
 
 def generate_result_pdf(students_results: List[Dict], class_name: str, output_path: str) -> bool:
     """
