@@ -231,34 +231,56 @@ def create_result_card(student_result: Dict, class_name: str) -> Table:
     """
     Create a single result card with premium design.
     """
-    card_elements = []
-    
-    # ===== LOGO CENTER MEIN =====
     card_elements.append(Spacer(1, 0.1*inch))
 
-    logo_path = os.path.join(os.path.dirname(__file__), "logo.png")
+logo_path = os.path.join(os.path.dirname(__file__), "logo.png")
+
+card_elements = []
     
-    if os.path.exists(logo_path):
-        # Logo chhota karo (pehle 1.5 tha, ab 1.0 karo)
-        logo = Image(logo_path, width=1.0*inch, height=1.0*inch)
-        
-        # Logo ko center karne ka simple tareeka
-        logo_table = Table([[logo]], colWidths=[7.2*inch])
-        logo_table.setStyle(TableStyle([
-            ('ALIGN', (0, 0), (0, 0), 'CENTER'),
-        ]))
-        
-        card_elements.append(logo_table)
-    else:
-        # Agar logo nahi hai to school name
-        school_style = ParagraphStyle(
-            'SchoolName',
-            fontSize=16,
-            fontName='Helvetica-Bold',
-            textColor=PRIMARY_COLOR,
-            alignment=TA_CENTER,
-        )
-        card_elements.append(Paragraph(SCHOOL_NAME, school_style))
+# ===== LOGO LEFT AUR SCHOOL NAME RIGHT EK LINE MEIN =====
+card_elements.append(Spacer(1, 0.1*inch))
+
+logo_path = os.path.join(os.path.dirname(__file__), "logo.png")
+
+if os.path.exists(logo_path):
+    # Logo chhota karo
+    logo = Image(logo_path, width=0.8*inch, height=0.8*inch)  # Size aur kam
+    
+    # School Name Style
+    school_style = ParagraphStyle(
+        'SchoolName',
+        fontSize=14,  # Thoda chhota
+        fontName='Helvetica-Bold',
+        textColor=PRIMARY_COLOR,
+        alignment=TA_RIGHT,  # Right align
+    )
+    school_name = Paragraph(SCHOOL_NAME, school_style)
+    
+    # Dono ko ek hi row mein table mein daalo
+    header_data = [[logo, school_name]]
+    header_table = Table(header_data, colWidths=[1.0*inch, 6.2*inch])
+    header_table.setStyle(TableStyle([
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),  # Vertical center
+        ('ALIGN', (0, 0), (0, 0), 'LEFT'),       # Logo left
+        ('ALIGN', (1, 0), (1, 0), 'RIGHT'),      # School name right
+        ('LEFTPADDING', (0, 0), (0, 0), 0),
+        ('RIGHTPADDING', (1, 0), (1, 0), 0),
+    ]))
+    
+    # Table ko center karo page par
+    header_table.hAlign = 'CENTER'
+    card_elements.append(header_table)
+    
+else:
+    # Agar logo nahi hai to sirf school name center mein
+    school_style = ParagraphStyle(
+        'SchoolName',
+        fontSize=16,
+        fontName='Helvetica-Bold',
+        textColor=PRIMARY_COLOR,
+        alignment=TA_CENTER,
+    )
+    card_elements.append(Paragraph(SCHOOL_NAME, school_style))
     
     # ===== TITLE - SPACE KAM KARO =====
     title_style = ParagraphStyle(
