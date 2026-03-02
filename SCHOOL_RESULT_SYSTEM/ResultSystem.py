@@ -240,15 +240,16 @@ def create_result_card(student_result: Dict, class_name: str) -> Table:
     
     if os.path.exists(logo_path):
         # Logo chhota karo
-        logo = Image(logo_path, width=0.9*inch, height=0.9*inch)
+        logo = Image(logo_path, width=0.8*inch, height=0.8*inch)
         
         # School Name Style
         school_style = ParagraphStyle(
             'SchoolName',
-            fontSize=14,
-            fontName='Helvetica-Bold',
+            fontSize=17,
+            fontName='Times-Bold',
             textColor=PRIMARY_COLOR,
             alignment=TA_CENTER,
+            
         )
         school_name = Paragraph(SCHOOL_NAME, school_style)
         
@@ -273,7 +274,7 @@ def create_result_card(student_result: Dict, class_name: str) -> Table:
         school_style = ParagraphStyle(
             'SchoolName',
             fontSize=16,
-            fontName='Helvetica-Bold',
+            fontName='Times-Bold',
             textColor=PRIMARY_COLOR,
             alignment=TA_CENTER,
         )
@@ -294,8 +295,8 @@ def create_result_card(student_result: Dict, class_name: str) -> Table:
     # ===== MID TERM EXAMINATION TITLE =====
     exam_title_style = ParagraphStyle(
         'ExamTitle',
-        fontSize=10,
-        fontName='Helvetica-Bold',
+        fontSize=12,
+        fontName='Times-Bold',
         alignment=TA_CENTER,
         textColor=PRIMARY_COLOR,
         spaceAfter=8
@@ -314,7 +315,7 @@ def create_result_card(student_result: Dict, class_name: str) -> Table:
     # Class (right)
     class_para = Paragraph(
         f"<b>Class:</b> {class_name}",
-        ParagraphStyle('Class', fontSize=10, fontName='Helvetica', alignment=TA_RIGHT)
+        ParagraphStyle('Class', fontSize=10, fontName='Times-Roman', alignment=TA_RIGHT)
     )
     
     name_class_data.append([name_para, class_para])
@@ -332,7 +333,7 @@ def create_result_card(student_result: Dict, class_name: str) -> Table:
     # ===== DATE (RIGHT) =====
     date_para = Paragraph(
         f"<b>Date:</b> {datetime.now().strftime('%d/%m/%Y')}",
-        ParagraphStyle('Date', fontSize=10, fontName='Helvetica', alignment=TA_RIGHT)
+        ParagraphStyle('Date', fontSize=10, fontName='Times-Roman', alignment=TA_RIGHT)
     )
     
     date_table = Table([[date_para]], colWidths=[7.2*inch])
@@ -371,9 +372,9 @@ def create_result_card(student_result: Dict, class_name: str) -> Table:
     subject_table = Table(subject_data, colWidths=[1.5*inch, 1.0*inch, 1.0*inch, 1.0*inch, 1.0*inch, 1.5*inch])
     
     subject_table.setStyle(TableStyle([
-        ('FONT', (0, 0), (-1, 0), 'Helvetica-Bold', 8),
-        ('FONT', (0, 1), (-1, -2), 'Helvetica', 8),        # Data font (excluding last row)
-        ('FONT', (0, -1), (-1, -1), 'Helvetica-Bold', 8),  # Total row bold
+        ('FONT', (0, 0), (-1, 0), 'Times-Bold', 10),
+        ('FONT', (0, 1), (-1, -2), 'Times-Roman', 9),        # Data font (excluding last row)
+        ('FONT', (0, -1), (-1, -1), 'Times-Bold', 10),  # Total row bold
         ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
         ('BACKGROUND', (0, 0), (-1, 0), PRIMARY_COLOR),
         ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
@@ -403,8 +404,8 @@ def create_result_card(student_result: Dict, class_name: str) -> Table:
     # Percentage (left)
     percentage_style = ParagraphStyle(
         'Percentage',
-        fontSize=9,
-        fontName='Helvetica-Bold',
+        fontSize=10,
+        fontName='Times-Bold',
         alignment=TA_LEFT,
     )
     percentage_text = f"<b>Percentage: {student_result['overall_percentage']:.1f}%</b>"
@@ -413,8 +414,8 @@ def create_result_card(student_result: Dict, class_name: str) -> Table:
     # Grade (right)
     grade_style = ParagraphStyle(
         'Grade',
-        fontSize=9,
-        fontName='Helvetica-Bold',
+        fontSize=10,
+        fontName='Times-Bold',
         alignment=TA_RIGHT,
     )
     grade_text = f"<b>Grade: {student_result['overall_grade']}</b>"
@@ -445,8 +446,8 @@ def create_result_card(student_result: Dict, class_name: str) -> Table:
     position_text = f"<b>POSITION: {student_result['position_str']}</b>"
     position_para = Paragraph(position_text, ParagraphStyle(
         'Position',
-        fontSize=9,
-        fontName='Helvetica-Bold',
+        fontSize=10,
+        fontName='Times-Bold',
         textColor=position_color,
         alignment=TA_LEFT
     ))
@@ -474,8 +475,8 @@ def create_result_card(student_result: Dict, class_name: str) -> Table:
     # Teacher Signature
     teacher_style = ParagraphStyle(
         'TeacherSignature',
-        fontSize=9,
-        fontName='Helvetica',
+        fontSize=10,
+        fontName='Times-Roman',
         alignment=TA_LEFT,
         textColor=colors.grey
     )
@@ -485,8 +486,8 @@ def create_result_card(student_result: Dict, class_name: str) -> Table:
     # Principal Signature
     principal_style = ParagraphStyle(
         'PrincipalSignature',
-        fontSize=9,
-        fontName='Helvetica',
+        fontSize=10,
+        fontName='Times-Roman',
         alignment=TA_RIGHT,
         textColor=colors.grey
     )
