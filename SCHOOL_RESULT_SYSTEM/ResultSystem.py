@@ -231,95 +231,121 @@ def create_result_card(student_result: Dict, class_name: str) -> Table:
     """
     Create a single result card with premium design.
     """
+    card_elements = []
+    
+    # ===== LOGO AUR SCHOOL NAME DONO CENTER MEIN EK LINE MEIN =====
     card_elements.append(Spacer(1, 0.1*inch))
 
-logo_path = os.path.join(os.path.dirname(__file__), "logo.png")
-
-card_elements = []
+    logo_path = os.path.join(os.path.dirname(__file__), "logo.png")
     
-# ===== LOGO LEFT AUR SCHOOL NAME RIGHT EK LINE MEIN =====
-card_elements.append(Spacer(1, 0.1*inch))
-
-logo_path = os.path.join(os.path.dirname(__file__), "logo.png")
-
-if os.path.exists(logo_path):
-    # Logo chhota karo
-    logo = Image(logo_path, width=0.8*inch, height=0.8*inch)  # Size aur kam
+    if os.path.exists(logo_path):
+        # Logo chhota karo
+        logo = Image(logo_path, width=0.6*inch, height=0.6*inch)
+        
+        # School Name Style
+        school_style = ParagraphStyle(
+            'SchoolName',
+            fontSize=14,
+            fontName='Helvetica-Bold',
+            textColor=PRIMARY_COLOR,
+            alignment=TA_CENTER,
+        )
+        school_name = Paragraph(SCHOOL_NAME, school_style)
+        
+        # Create a 3-column table to center logo and text together
+        # [SPACER, LOGO, SCHOOL_NAME, SPACER] - spacers push everything to center
+        left_spacer = Spacer(1.5*inch, 0.1*inch)
+        right_spacer = Spacer(1.5*inch, 0.1*inch)
+        
+        header_data = [[left_spacer, logo, school_name, right_spacer]]
+        header_table = Table(header_data, colWidths=[1.5*inch, 0.6*inch, 3.0*inch, 1.5*inch])
+        header_table.setStyle(TableStyle([
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('ALIGN', (1, 0), (1, 0), 'CENTER'),      # Logo center in its cell
+            ('ALIGN', (2, 0), (2, 0), 'CENTER'),      # School name center in its cell
+        ]))
+        
+        header_table.hAlign = 'CENTER'
+        card_elements.append(header_table)
+        
+    else:
+        # Agar logo nahi hai to sirf school name center mein
+        school_style = ParagraphStyle(
+            'SchoolName',
+            fontSize=16,
+            fontName='Helvetica-Bold',
+            textColor=PRIMARY_COLOR,
+            alignment=TA_CENTER,
+        )
+        card_elements.append(Paragraph(SCHOOL_NAME, school_style))
     
-    # School Name Style
-    school_style = ParagraphStyle(
-        'SchoolName',
-        fontSize=14,  # Thoda chhota
-        fontName='Helvetica-Bold',
-        textColor=PRIMARY_COLOR,
-        alignment=TA_RIGHT,  # Right align
-    )
-    school_name = Paragraph(SCHOOL_NAME, school_style)
-    
-    # Dono ko ek hi row mein table mein daalo
-    header_data = [[logo, school_name]]
-    header_table = Table(header_data, colWidths=[1.0*inch, 6.2*inch])
-    header_table.setStyle(TableStyle([
-        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),  # Vertical center
-        ('ALIGN', (0, 0), (0, 0), 'LEFT'),       # Logo left
-        ('ALIGN', (1, 0), (1, 0), 'RIGHT'),      # School name right
-        ('LEFTPADDING', (0, 0), (0, 0), 0),
-        ('RIGHTPADDING', (1, 0), (1, 0), 0),
-    ]))
-    
-    # Table ko center karo page par
-    header_table.hAlign = 'CENTER'
-    card_elements.append(header_table)
-    
-else:
-    # Agar logo nahi hai to sirf school name center mein
-    school_style = ParagraphStyle(
-        'SchoolName',
-        fontSize=16,
-        fontName='Helvetica-Bold',
-        textColor=PRIMARY_COLOR,
-        alignment=TA_CENTER,
-    )
-    card_elements.append(Paragraph(SCHOOL_NAME, school_style))
-    
-    # ===== TITLE - SPACE KAM KARO =====
-    title_style = ParagraphStyle(
-        'Title',
-        fontSize=10,
-        fontName='Helvetica-Bold',
-        textColor=SECONDARY_COLOR,
-        alignment=TA_CENTER,
-        spaceAfter=4  # Pehle 8 tha, ab 4 karo
-    )
-    card_elements.append(Paragraph("ANNUAL EXAMINATION RESULT CARD", title_style))
-    
-    # ===== STUDENT INFO - SPACE KAM KARO =====
-    info_style = ParagraphStyle(
-        'Info',
-        fontSize=9,
+    # ===== SCHOOL ADDRESS =====
+    address_style = ParagraphStyle(
+        'Address',
+        fontSize=8,
         fontName='Helvetica',
         alignment=TA_CENTER,
-        spaceAfter=2,  # Pehle 8 tha, ab 2 karo
-        leading=10  # Pehle 14 tha, ab 10 karo
+        textColor=colors.grey,
+        spaceAfter=4
     )
+    address_text = "Main Road Alfalah Town Sadik Abad Ph #0300-6721263"
+    card_elements.append(Paragraph(address_text, address_style))
     
-    info_text = f"<b>Roll No:</b> {student_result['roll_no']} | <b>Class:</b> {class_name}"
-    card_elements.append(Paragraph(info_text, info_style))
-    
-    name_style = ParagraphStyle(
-        'Name',
-        fontSize=9,
+    # ===== MID TERM EXAMINATION TITLE =====
+    exam_title_style = ParagraphStyle(
+        'ExamTitle',
+        fontSize=10,
         fontName='Helvetica-Bold',
         alignment=TA_CENTER,
-        spaceAfter=4,  # Pehle 8 tha, ab 4 karo
-        textColor=PRIMARY_COLOR
+        textColor=PRIMARY_COLOR,
+        spaceAfter=8
     )
-    name_text = f"<b>Name: {student_result['name']}</b>"
-    card_elements.append(Paragraph(name_text, name_style))
+    card_elements.append(Paragraph("Mid Term Examination 2025", exam_title_style))
+    
+    # ===== NAME (LEFT) AND CLASS (RIGHT) IN SAME LINE =====
+    name_class_data = []
+    
+    # Name (left)
+    name_para = Paragraph(
+        f"<b>Name:</b> {student_result['name']}",
+        ParagraphStyle('Name', fontSize=10, fontName='Helvetica', alignment=TA_LEFT)
+    )
+    
+    # Class (right)
+    class_para = Paragraph(
+        f"<b>Class:</b> {class_name}",
+        ParagraphStyle('Class', fontSize=10, fontName='Helvetica', alignment=TA_RIGHT)
+    )
+    
+    name_class_data.append([name_para, class_para])
+    
+    name_class_table = Table(name_class_data, colWidths=[3.6*inch, 3.6*inch])
+    name_class_table.setStyle(TableStyle([
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('ALIGN', (0, 0), (0, 0), 'LEFT'),
+        ('ALIGN', (1, 0), (1, 0), 'RIGHT'),
+        ('RIGHTPADDING', (1, 0), (1, 0), 50),  # Class ko right se padding
+    ]))
+    name_class_table.hAlign = 'CENTER'
+    card_elements.append(name_class_table)
+    
+    # ===== DATE (RIGHT) =====
+    date_para = Paragraph(
+        f"<b>Date:</b> {datetime.now().strftime('%d/%m/%Y')}",
+        ParagraphStyle('Date', fontSize=10, fontName='Helvetica', alignment=TA_RIGHT)
+    )
+    
+    date_table = Table([[date_para]], colWidths=[7.2*inch])
+    date_table.setStyle(TableStyle([
+        ('ALIGN', (0, 0), (0, 0), 'RIGHT'),
+        ('RIGHTPADDING', (0, 0), (0, 0), 40),  # Date ko right se padding
+    ]))
+    date_table.hAlign = 'CENTER'
+    card_elements.append(date_table)
     
     card_elements.append(Spacer(1, 0.1*inch))
     
-    # ===== SUBJECTS TABLE - WIDTH SAME RAKHO =====
+    # ===== SUBJECTS TABLE WITH TOTAL =====
     subject_data = [['Subject', 'Marks', 'Max', 'Percentage', 'Grade', 'Status']]
     
     for sub in student_result['subjects']:
@@ -332,18 +358,30 @@ else:
             sub['status']
         ])
     
+    # TOTAL ROW ADD KARO
+    subject_data.append([
+        'TOTAL',
+        f"{student_result['total_obtained']:.0f}",
+        f"{student_result['total_max']:.0f}",
+        f"{student_result['overall_percentage']:.0f}%",
+        student_result['overall_grade'],
+        ''
+    ])
+    
     subject_table = Table(subject_data, colWidths=[1.5*inch, 1.0*inch, 1.0*inch, 1.0*inch, 1.0*inch, 1.5*inch])
     
     subject_table.setStyle(TableStyle([
-        ('FONT', (0, 0), (-1, 0), 'Helvetica-Bold', 8),  # Header font chhota (10 se 9)
-        ('FONT', (0, 1), (-1, -1), 'Helvetica', 7),  # Data font chhota (9 se 8)
+        ('FONT', (0, 0), (-1, 0), 'Helvetica-Bold', 8),
+        ('FONT', (0, 1), (-1, -2), 'Helvetica', 8),        # Data font (excluding last row)
+        ('FONT', (0, -1), (-1, -1), 'Helvetica-Bold', 8),  # Total row bold
         ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
         ('BACKGROUND', (0, 0), (-1, 0), PRIMARY_COLOR),
         ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
         ('GRID', (0, 0), (-1, -1), 1, colors.HexColor('#cccccc')),
         ('ROWBACKGROUNDS', (0, 1), (-1, -2), [colors.white, LIGHT_BG]),
-        ('TOPPADDING', (0, 0), (-1, -1), 2),  # Padding kam (8 se 4)
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 2),  # Padding kam (8 se 4)
+        ('BACKGROUND', (0, -1), (-1, -1), LIGHT_BG),        # Total row background
+        ('TOPPADDING', (0, 0), (-1, -1), 3),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
         ('LEFTPADDING', (0, 0), (-1, -1), 4),
         ('RIGHTPADDING', (0, 0), (-1, -1), 4),
     ]))
@@ -358,19 +396,9 @@ else:
     subject_table.hAlign = 'CENTER'
     card_elements.append(subject_table)
     card_elements.append(Spacer(1, 0.1*inch))
-
     
     # ===== TOTAL, PERCENTAGE, GRADE =====
-    summary_style = ParagraphStyle(
-        'Summary',
-        fontSize=9,  # Pehle 12 tha, ab 10 karo
-        fontName='Helvetica-Bold',
-        alignment=TA_CENTER,
-        spaceAfter=4  # Pehle 8 tha, ab 4 karo
-    )
     
-    summary_text = f"<b>Total: {student_result['total_obtained']:.0f}/{student_result['total_max']:.0f} | Percentage: {student_result['overall_percentage']:.1f}% | Grade: {student_result['overall_grade']}</b>"
-    card_elements.append(Paragraph(summary_text, summary_style))
     
     # ===== POSITION (LEFT) AND RESULT (RIGHT) IN SAME LINE =====
     pr_data = []
@@ -380,7 +408,7 @@ else:
     position_text = f"<b>POSITION: {student_result['position_str']}</b>"
     position_para = Paragraph(position_text, ParagraphStyle(
         'Position',
-        fontSize=9,  # Pehle 10 tha, ab 9 karo
+        fontSize=9,
         fontName='Helvetica-Bold',
         textColor=position_color,
         alignment=TA_LEFT
@@ -391,7 +419,7 @@ else:
     result_text = f"<b>RESULT: {student_result['overall_status']}</b>"
     result_para = Paragraph(result_text, ParagraphStyle(
         'Result',
-        fontSize=9,  # Pehle 10 tha, ab 9 karo
+        fontSize=9,
         fontName='Helvetica-Bold',
         textColor=result_color,
         alignment=TA_RIGHT
@@ -410,27 +438,58 @@ else:
     pr_table.hAlign = 'CENTER'
     card_elements.append(pr_table)
     
-    # ===== FOOTER with Principal Signature =====
-    footer_style = ParagraphStyle(
-        'Footer',
-        fontSize=9,  # Pehle 10 tha, ab 9 karo
+    # ===== TEACHER AND PRINCIPAL SIGNATURE IN SAME LINE =====
+    card_elements.append(Spacer(1, 0.2*inch))  # Medium space (1/5 inch)
+
+    signature_data = []
+    
+    # Teacher Signature
+    teacher_style = ParagraphStyle(
+        'TeacherSignature',
+        fontSize=9,
+        fontName='Helvetica',
+        alignment=TA_LEFT,
+        textColor=colors.grey
+    )
+    teacher_text = "Teacher Signature: ____________________"
+    teacher_para = Paragraph(teacher_text, teacher_style)
+    
+    # Principal Signature
+    principal_style = ParagraphStyle(
+        'PrincipalSignature',
+        fontSize=9,
         fontName='Helvetica',
         alignment=TA_RIGHT,
         textColor=colors.grey
     )
-    card_elements.append(Paragraph("Principal Signature: ____________________", footer_style))
+    principal_text = "Principal Signature: ____________________"
+    principal_para = Paragraph(principal_text, principal_style)
+    
+    # Dono signatures ek hi row mein
+    signature_data.append([teacher_para, principal_para])
+    
+    signature_table = Table(signature_data, colWidths=[3.6*inch, 3.6*inch])
+    signature_table.setStyle(TableStyle([
+        ('ALIGN', (0, 0), (0, 0), 'LEFT'),
+        ('ALIGN', (1, 0), (1, 0), 'RIGHT'),
+        ('LEFTPADDING', (0, 0), (0, 0), 10),
+        ('RIGHTPADDING', (1, 0), (1, 0), 40),
+        ('TOPPADDING', (0, 0), (-1, -1), 2),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
+    ]))
+    signature_table.hAlign = 'CENTER'
+    card_elements.append(signature_table)
     card_elements.append(Spacer(1, 0.1*inch))
-
     
     # ===== WRAP EVERYTHING IN A BORDER =====
     card_table = Table([[e] for e in card_elements])
     card_table.setStyle(TableStyle([
-        ('BOX', (0, 0), (-1, -1), 1, PRIMARY_COLOR),
+        # ('BOX', (0, 0), (-1, -1), 1, PRIMARY_COLOR),
         ('BACKGROUND', (0, 0), (-1, -1), colors.white),
-        ('TOPPADDING', (0, 0), (-1, -1), 4),  # Padding kam (12 se 6)
-        ('BOTTOMPADDING', (0, 0), (-1, -1),4 ),  # Padding kam (10 se 4)
-        ('LEFTPADDING', (0, 0), (-1, -1), 8),  # Padding kam (12 se 8)
-        ('RIGHTPADDING', (0, 0), (-1, -1), 8),  # Padding kam (12 se 8)
+        ('TOPPADDING', (0, 0), (-1, -1), 1),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
+        ('LEFTPADDING', (0, 0), (-1, -1), 8),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 8),
     ]))
     
     card_table.hAlign = 'CENTER'
@@ -439,7 +498,7 @@ else:
 
 def generate_result_pdf(students_results: List[Dict], class_name: str, output_path: str) -> bool:
     """
-    Generate PDF with 2 cards per page (A4 Portrait) - Properly spaced
+    Generate PDF with 2 cards per page (A4 Portrait) - Cards separated by line
     """
     try:
         doc = SimpleDocTemplate(output_path, 
@@ -461,11 +520,33 @@ def generate_result_pdf(students_results: List[Dict], class_name: str, output_pa
             card1 = create_result_card(students_results[i], class_name)
             elements.append(card1)
             
-            # Add flexible space to push cards to proper positions
-            elements.append(Spacer(1, 0.3*inch))
-            
-            # Card 2 - Bottom half (if exists)
+            # Check if there's a second card
             if i + 1 < len(students_results):
+                # Add space before line
+                elements.append(Spacer(1, 0.2*inch))
+                
+                # ===== LINE BETWEEN CARDS =====
+                line_style = ParagraphStyle(
+                    'SeparatorLine',
+                    fontSize=1,
+                    alignment=TA_CENTER,
+                    textColor=colors.black,
+                )
+                # Create a line that spans the page width
+                line_text = "_" * 900  # 100 underscores
+                line_para = Paragraph(line_text, line_style)
+                
+                # Center the line
+                line_table = Table([[line_para]], colWidths=[7.2*inch])
+                line_table.setStyle(TableStyle([
+                    ('ALIGN', (0, 0), (0, 0), 'CENTER'),
+                ]))
+                elements.append(line_table)
+                
+                # Add space after line
+                elements.append(Spacer(1, 0.2*inch))
+                
+                # Card 2 - Bottom half
                 card2 = create_result_card(students_results[i+1], class_name)
                 elements.append(card2)
             
