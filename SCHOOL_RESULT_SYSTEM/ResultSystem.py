@@ -283,7 +283,7 @@ def create_result_card(student_result: Dict, class_name: str) -> Table:
         fontSize=8,
         fontName='Helvetica',
         alignment=TA_CENTER,
-        textColor=colors.grey,
+        textColor=colors.black,
         spaceAfter=4
     )
     address_text = "Main Road Alfalah Town Sadik Abad Ph #0300-6721263"
@@ -485,7 +485,7 @@ def create_result_card(student_result: Dict, class_name: str) -> Table:
         fontSize=10,
         fontName='Times-Roman',
         alignment=TA_LEFT,
-        textColor=colors.grey
+        textColor=colors.black
     )
     teacher_text = "Teacher Signature: ____________________"
     teacher_para = Paragraph(teacher_text, teacher_style)
@@ -496,7 +496,7 @@ def create_result_card(student_result: Dict, class_name: str) -> Table:
         fontSize=9,
         fontName='Times-Roman',
         alignment=TA_RIGHT,
-        textColor=colors.grey
+        textColor=colors.black
     )
     principal_text = "Principal Signature: ____________________"
     principal_para = Paragraph(principal_text, principal_style)
