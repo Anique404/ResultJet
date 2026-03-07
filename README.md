@@ -86,7 +86,7 @@ ResultJet/
 ```
 1. Download ResultJet.zip
 2. Extract to Desktop
-3. Double click ResultJet.exe
+3. Double click ResultSystem.py
 4. Start using!
 ```
 
