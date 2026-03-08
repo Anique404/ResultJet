@@ -70,7 +70,7 @@ ResultJet/
 
 ---
 
-## 🖥️ HOW TO USE
+## 🖥️ HOW TO USE 
 
 **STEP 1:** Put Excel files in `CLASS_DATA` folder
 **STEP 2:** Double click `ResultJet.exe`
