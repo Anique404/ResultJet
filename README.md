@@ -8,7 +8,7 @@
 
 ResultJet is a desktop app that **automatically generates result cards** from Excel files. Built for Pakistani schools (KG to 10th).
 
-**One click = 100+ result cards ready in 2 minutes.**
+**One click = 100+ result cards ready in 2 minutes**
 
 ---
 
