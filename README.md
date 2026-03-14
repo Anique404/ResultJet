@@ -1,6 +1,6 @@
 # 🚀 RESULTJET
 
-**School Result Card Automation System | KG to 10th | Excel to PDF | 33% Pass Rule**
+**School Result Card Automation System | KG to 10th | Excel to PDF | 33% Pass Rule **
 
 ---
 
